@@ -8,6 +8,7 @@ import { Poster } from "@/components/poster";
 import { Countdown } from "@/components/countdown";
 import { AnimeTracker } from "@/components/anime-tracker";
 import { FranchiseAdd } from "@/components/franchise-add";
+import { TrailerPlayer } from "@/components/trailer-player";
 
 interface DetailPageProps {
   params: Promise<{ id: string }>;
@@ -32,12 +33,10 @@ export default async function DetailPage({ params }: DetailPageProps) {
   if (!media) notFound();
 
   const streaming = media.externalLinks.filter((l) => l.type === "STREAMING");
-  const trailerUrl =
-    media.trailer?.site === "youtube"
-      ? `https://www.youtube.com/watch?v=${media.trailer.id}`
-      : media.trailer?.site === "dailymotion"
-        ? `https://www.dailymotion.com/video/${media.trailer.id}`
-        : null;
+  const trailerSite =
+    media.trailer?.site === "youtube" || media.trailer?.site === "dailymotion"
+      ? media.trailer.site
+      : null;
 
   const facts: { label: string; value: string }[] = [
     { label: "Format", value: formatLabel(media.format) },
@@ -177,30 +176,14 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </div>
           ) : null}
 
-          {trailerUrl ? (
+          {trailerSite && media.trailer ? (
             <div className="mt-6 border-t border-line pt-6">
               <p className="kicker mb-3">Trailer</p>
-              <a
-                href={trailerUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="relative block aspect-video max-w-md overflow-hidden border border-line bg-surface"
-              >
-                {media.trailer?.site === "youtube" && media.trailer.thumbnail ? (
-                  <Image
-                    src={media.trailer.thumbnail}
-                    alt="Trailer thumbnail"
-                    fill
-                    sizes="(max-width: 768px) 100vw, 28rem"
-                    className="object-cover"
-                  />
-                ) : null}
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="flex h-12 w-12 items-center justify-center bg-bg/80 text-ink">
-                    <i className="ti ti-player-play text-xl" aria-hidden="true" />
-                  </span>
-                </span>
-              </a>
+              <TrailerPlayer
+                site={trailerSite}
+                id={media.trailer.id}
+                thumbnail={media.trailer.thumbnail}
+              />
             </div>
           ) : null}
         </div>
