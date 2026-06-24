@@ -1,3 +1,5 @@
+export const revalidate = 86400;
+
 import { NextResponse } from "next/server";
 import { getSeason } from "@/lib/anilist";
 import { currentSeason, isValidSeason } from "@/lib/season";

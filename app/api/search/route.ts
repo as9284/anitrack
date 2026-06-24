@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { NextResponse } from "next/server";
 import { searchMedia } from "@/lib/anilist";
 import { isValidGenre, isValidFormat } from "@/lib/constants";

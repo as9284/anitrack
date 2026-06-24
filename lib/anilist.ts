@@ -575,6 +575,70 @@ export async function getRecommendations(
     .map((entry) => entry.card);
 }
 
+export interface RelationLinks {
+  id: number;
+  neighbors: number[];
+}
+
+// Sequel/prequel timeline links for the tracked ids, used to group seasons of
+// the same series. Deliberately limited to SEQUEL/PREQUEL (not SIDE_STORY /
+// SPIN_OFF / ALTERNATIVE) so franchises don't over-merge. Neighbor ids may be
+// untracked middle seasons — that's fine, they connect tracked seasons via a
+// shared id in the client-side union-find.
+export async function getRelationsForIds(
+  ids: number[],
+): Promise<RelationLinks[]> {
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(id_in: $ids, type: ANIME) {
+          id
+          relations {
+            edges {
+              relationType
+              node { id type }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const out: RelationLinks[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    try {
+      const data = await aniFetch<{
+        Page: {
+          media: {
+            id: number;
+            relations: {
+              edges: {
+                relationType: string;
+                node: { id: number; type: string };
+              }[];
+            } | null;
+          }[];
+        };
+      }>(query, { ids: chunk }, 86400);
+
+      for (const m of data.Page.media) {
+        const neighbors = (m.relations?.edges ?? [])
+          .filter(
+            (e) =>
+              (e.relationType === "SEQUEL" || e.relationType === "PREQUEL") &&
+              e.node.type === "ANIME",
+          )
+          .map((e) => e.node.id);
+        out.push({ id: m.id, neighbors });
+      }
+    } catch {
+      // On failure, leave these ids ungrouped rather than breaking the page.
+    }
+  }
+  return out;
+}
+
 export async function getMetaForIds(ids: number[]): Promise<MediaMeta[]> {
   const out: MediaMeta[] = [];
   for (let i = 0; i < ids.length; i += 50) {

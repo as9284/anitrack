@@ -1,3 +1,5 @@
+export const revalidate = 21600;
+
 import { NextResponse } from "next/server";
 import { getMedia } from "@/lib/anilist";
 

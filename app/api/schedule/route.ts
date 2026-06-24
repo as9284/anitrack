@@ -1,3 +1,5 @@
+export const revalidate = 3600;
+
 import { NextResponse } from "next/server";
 import { getSchedule } from "@/lib/anilist";
 import { resolveAllowAdult } from "@/lib/adult-server";
