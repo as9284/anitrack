@@ -60,26 +60,26 @@ export function AnimeTracker({ media }: AnimeTrackerProps) {
         ))}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-3 border-t border-line pt-4">
         <span className="kicker">Progress</span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             aria-label="Decrease progress"
             onClick={() => setProgress(media.id, entry.progress - 1)}
-            className="flex h-8 w-8 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40"
+            className="flex h-8 w-8 shrink-0 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40"
             disabled={entry.progress <= 0}
           >
             <i className="ti ti-minus" aria-hidden="true" />
           </button>
-          <span className="min-w-[64px] text-center font-serif text-base text-ink">
+          <span className="min-w-[56px] text-center font-serif text-base text-ink">
             {entry.progress} / {media.episodes ?? "?"}
           </span>
           <button
             type="button"
             aria-label="Increase progress"
             onClick={() => setProgress(media.id, entry.progress + 1)}
-            className="flex h-8 w-8 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40"
+            className="flex h-8 w-8 shrink-0 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40"
             disabled={max !== undefined && entry.progress >= max}
           >
             <i className="ti ti-plus" aria-hidden="true" />
