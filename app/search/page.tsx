@@ -59,15 +59,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <div className="mt-8">
         {query.length === 0 ? (
           <p className="text-sm text-muted">
-            Start typing to search the AniList catalogue.
+            Start typing and we&apos;ll search AniList for you.
           </p>
         ) : failed ? (
           <p className="border border-line px-5 py-8 text-center text-sm text-muted">
-            Couldn&apos;t reach AniList just now. Please try again.
+            AniList isn&apos;t responding right now. Give it a moment and try again.
           </p>
         ) : results.length === 0 ? (
           <p className="text-sm text-muted">
-            No results for &ldquo;{query}&rdquo;.
+            Nothing came up for &ldquo;{query}&rdquo;.
           </p>
         ) : (
           <SelectableGrid media={results} />

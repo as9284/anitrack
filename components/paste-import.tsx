@@ -46,14 +46,14 @@ export function PasteImport() {
         body: JSON.stringify({ titles }),
       });
       if (!res.ok) {
-        setMessage("Couldn't match those titles. Please try again.");
+        setMessage("We couldn't match those titles. Give it another try.");
         return;
       }
       const data = (await res.json()) as { matches: TitleMatch[] };
       setMatches(data.matches);
       setChosen(data.matches.map((m) => m.candidates[0]?.id ?? null));
     } catch {
-      setMessage("Matching failed. Check your connection and try again.");
+      setMessage("Matching didn't go through. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -105,8 +105,8 @@ export function PasteImport() {
   return (
     <div>
       <p className="mt-1 text-sm text-muted">
-        No account anywhere? Paste your watched titles — one per line — and
-        we&apos;ll match each against AniList so you can add them in bulk.
+        No account anywhere? Paste in your watched titles, one per line, and
+        we&apos;ll match each one against AniList so you can add them all at once.
       </p>
 
       {!matches ? (

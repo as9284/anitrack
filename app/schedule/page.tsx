@@ -29,13 +29,13 @@ export default async function SchedulePage() {
       <p className="kicker">Airing timetable</p>
       <h1 className="mt-3 font-serif text-4xl text-ink">This week</h1>
       <p className="mt-3 max-w-md text-sm text-muted">
-        Every episode airing over the next seven days, in your local time.
+        Everything airing over the next seven days, shown in your local time.
       </p>
 
       <div className="mt-10">
         {failed ? (
           <p className="border border-line px-5 py-8 text-center text-sm text-muted">
-            Couldn&apos;t reach AniList just now. Please refresh in a moment.
+            AniList isn&apos;t responding right now. Give it a moment and refresh.
           </p>
         ) : (
           <ScheduleClient items={items} />

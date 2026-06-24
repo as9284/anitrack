@@ -6,7 +6,7 @@ export default function NotFound() {
       <p className="kicker">404</p>
       <h1 className="mt-3 font-serif text-4xl text-ink">Not found</h1>
       <p className="mt-3 max-w-sm text-sm text-muted">
-        That page or title doesn&apos;t exist. Head back and keep browsing.
+        We couldn&apos;t find that page. Head back and keep browsing.
       </p>
       <Link
         href="/"

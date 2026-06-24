@@ -32,19 +32,19 @@ export default async function HomePage() {
   return (
     <div className="pb-4">
       <section className="border-b border-line py-12 sm:py-16">
-        <p className="kicker">Seasonal guide — week of {weekOf}</p>
+        <p className="kicker">Seasonal guide, week of {weekOf}</p>
         <h1 className="mt-4 font-serif text-5xl leading-none text-ink sm:text-6xl">
           {seasonLabel(season)} {year}
         </h1>
         <p className="mt-4 max-w-md text-base leading-relaxed text-muted">
           {total > 0
-            ? `${total} titles airing this season. Track what you're watching and never miss an episode.`
+            ? `${total} shows are airing this season. Follow the ones you're watching and we'll line up every new episode for you.`
             : "Browse the season, follow what you love, and let the countdowns do the rest."}
         </p>
       </section>
 
       <section className="py-10">
-        <p className="kicker mb-4">Up next — in your list</p>
+        <p className="kicker mb-4">Up next in your list</p>
         <UpNextList />
       </section>
 
@@ -61,7 +61,7 @@ export default async function HomePage() {
 
         {failed ? (
           <p className="border border-line px-5 py-8 text-center text-sm text-muted">
-            Couldn&apos;t reach AniList just now. Please refresh in a moment.
+            AniList isn&apos;t responding right now. Give it a moment and refresh.
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4">

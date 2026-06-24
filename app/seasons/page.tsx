@@ -96,11 +96,11 @@ export default async function SeasonsPage({ searchParams }: SeasonsPageProps) {
 
       {failed ? (
         <p className="mt-10 border border-line px-5 py-8 text-center text-sm text-muted">
-          Couldn&apos;t reach AniList just now. Please refresh in a moment.
+          AniList isn&apos;t responding right now. Give it a moment and refresh.
         </p>
       ) : media.length === 0 ? (
         <p className="mt-10 border border-line px-5 py-8 text-center text-sm text-muted">
-          No titles found for this season.
+          Nothing to show for this season yet.
         </p>
       ) : (
         <>

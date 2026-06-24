@@ -48,7 +48,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`/api/import?user=${encodeURIComponent(user)}`);
       if (!res.ok) {
-        setMessage("Couldn't find that AniList user.");
+        setMessage("We couldn't find that AniList user.");
         return;
       }
       const data = (await res.json()) as { entries: ImportEntry[] };
@@ -60,7 +60,7 @@ export default function SettingsPage() {
       setImportUser("");
       setMessage(`Imported ${data.entries.length} titles from AniList.`);
     } catch {
-      setMessage("Import failed. Please try again.");
+      setMessage("That import didn't work. Give it another try.");
     } finally {
       setBusy(false);
     }
@@ -84,7 +84,7 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error();
       setMessage("Saved to the cloud.");
     } catch {
-      setMessage("Sync failed. Check your connection and try again.");
+      setMessage("Sync didn't go through. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -107,7 +107,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`/api/sync/${code}`);
       if (res.status === 404) {
-        setMessage("No data found for that code.");
+        setMessage("We couldn't find anything saved under that code.");
         return;
       }
       if (!res.ok) throw new Error();
@@ -116,7 +116,7 @@ export default function SettingsPage() {
       setCodeInput("");
       setMessage("Pulled your list from the cloud.");
     } catch {
-      setMessage("Couldn't pull that code. Try again.");
+      setMessage("That didn't work. Give the code another try.");
     } finally {
       setBusy(false);
     }
@@ -149,7 +149,7 @@ export default function SettingsPage() {
       replaceAll(parsed);
       setMessage("Imported your backup.");
     } catch {
-      setMessage("That file couldn't be read.");
+      setMessage("We couldn't read that file.");
     } finally {
       if (fileRef.current) fileRef.current.value = "";
     }

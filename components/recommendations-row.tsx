@@ -46,7 +46,8 @@ export function RecommendationsRow() {
         <PosterGridSkeleton count={4} />
       ) : recs.length === 0 ? (
         <p className="text-sm text-muted">
-          No recommendations yet — track a few more shows.
+          Nothing to recommend yet. Track a few more shows and we&apos;ll find
+          some picks for you.
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4">

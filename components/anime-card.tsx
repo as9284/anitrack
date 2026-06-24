@@ -52,7 +52,7 @@ export function AnimeCard({
         type="button"
         aria-pressed={selected}
         onClick={() => onToggleSelect?.(media.id)}
-        className="group relative block text-left"
+        className="group relative flex w-full flex-col text-left"
       >
         <Poster
           src={media.cover}

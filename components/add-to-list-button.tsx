@@ -65,7 +65,7 @@ export function AddToListButton({ media }: AddToListButtonProps) {
         aria-expanded={open}
         aria-label={inList ? "Change list status" : "Add to list"}
         title={
-          inList ? "In your list — click to change" : "Add to your list"
+          inList ? "In your list. Click to change." : "Add to your list"
         }
         className={cn(
           "flex h-7 w-7 items-center justify-center border text-sm transition-colors",
