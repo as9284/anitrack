@@ -8,11 +8,14 @@ import { useHydrated, useNow } from "@/lib/hooks";
 import { Countdown } from "./countdown";
 import type { AiringStatus } from "@/lib/types";
 
+const INITIAL_VISIBLE = 3;
+
 export function UpNextList() {
   const hydrated = useHydrated();
   const now = useNow(30000);
   const entries = useStore((s) => s.entries);
   const [airing, setAiring] = useState<Record<number, AiringStatus>>({});
+  const [visible, setVisible] = useState(INITIAL_VISIBLE);
 
   const watching = useMemo(
     () =>
@@ -80,9 +83,11 @@ export function UpNextList() {
     return aAir - bAir;
   });
 
+  const shown = sorted.slice(0, visible);
+
   return (
     <div>
-      {sorted.map((entry, index) => {
+      {shown.map((entry, index) => {
         const next = airing[entry.id]?.nextAiringEpisode ?? null;
         const totalEpisodes = airing[entry.id]?.episodes ?? entry.episodes;
         const soon = next ? next.airingAt - now / 1000 < 86400 : false;
@@ -134,6 +139,16 @@ export function UpNextList() {
           </Link>
         );
       })}
+
+      {sorted.length > visible ? (
+        <button
+          type="button"
+          onClick={() => setVisible((v) => v + INITIAL_VISIBLE)}
+          className="mt-4 w-full border border-line py-3 text-xs uppercase tracking-wider text-muted transition-colors hover:border-ink hover:text-ink"
+        >
+          Load more ({sorted.length - visible})
+        </button>
+      ) : null}
     </div>
   );
 }

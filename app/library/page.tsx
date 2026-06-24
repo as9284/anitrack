@@ -17,6 +17,24 @@ const TABS: { value: WatchStatus; label: string }[] = [
 
 const PAGE_SIZE = 20;
 
+const FORMAT_LABELS: Record<string, string> = {
+  TV: "TV",
+  TV_SHORT: "TV Short",
+  MOVIE: "Movie",
+  SPECIAL: "Special",
+  OVA: "OVA",
+  ONA: "ONA",
+  MUSIC: "Music",
+};
+
+type SortKey = "recent" | "title" | "progress";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "recent", label: "Recently added" },
+  { value: "title", label: "Title A–Z" },
+  { value: "progress", label: "Most watched" },
+];
+
 interface RelationLinks {
   id: number;
   neighbors: number[];
@@ -26,6 +44,8 @@ interface SeriesGroup {
   key: number;
   items: WatchEntry[];
   recent: number;
+  title: string;
+  progress: number;
 }
 
 // Union-find over sequel/prequel links. Tracked seasons connect even through an
@@ -66,6 +86,8 @@ export default function LibraryPage() {
 
   const [tab, setTab] = useState<WatchStatus>("watching");
   const [query, setQuery] = useState("");
+  const [format, setFormat] = useState("all");
+  const [sort, setSort] = useState<SortKey>("recent");
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [links, setLinks] = useState<RelationLinks[]>([]);
@@ -108,11 +130,23 @@ export default function LibraryPage() {
     return c;
   }, [entries]);
 
+  const formatOptions = useMemo(() => {
+    const present = new Set<string>();
+    for (const e of Object.values(entries)) {
+      if (e.status === tab && e.format) present.add(e.format);
+    }
+    const opts = [...present]
+      .sort()
+      .map((f) => ({ value: f, label: FORMAT_LABELS[f] ?? f }));
+    return [{ value: "all", label: "All formats" }, ...opts];
+  }, [entries, tab]);
+
   const groups = useMemo<SeriesGroup[]>(() => {
     const q = query.trim().toLowerCase();
     const filtered = Object.values(entries).filter(
       (e) =>
         e.status === tab &&
+        (format === "all" || e.format === format) &&
         (q === "" || e.title.toLowerCase().includes(q)),
     );
     const buckets = new Map<number, WatchEntry[]>();
@@ -122,19 +156,39 @@ export default function LibraryPage() {
       if (arr) arr.push(e);
       else buckets.set(k, [e]);
     }
-    return [...buckets.entries()]
-      .map(([key, items]) => {
-        items.sort((a, b) => a.id - b.id); // ascending id ≈ release order
-        const recent = items.reduce((m, i) => Math.max(m, i.addedAt), 0);
-        return { key, items, recent };
-      })
-      .sort((a, b) => b.recent - a.recent);
-  }, [entries, tab, query, groupKeyOf]);
+    const built = [...buckets.entries()].map(([key, items]) => {
+      items.sort((a, b) => a.id - b.id); // ascending id ≈ release order
+      const recent = items.reduce((m, i) => Math.max(m, i.addedAt), 0);
+      const progress = items.reduce((s, i) => s + i.progress, 0);
+      // shortest title ≈ the base season / franchise name
+      const title = items.reduce((a, b) =>
+        b.title.length < a.title.length ? b : a,
+      ).title;
+      return { key, items, recent, title, progress };
+    });
+    built.sort((a, b) => {
+      if (sort === "title") return a.title.localeCompare(b.title);
+      if (sort === "progress") return b.progress - a.progress;
+      return b.recent - a.recent;
+    });
+    return built;
+  }, [entries, tab, query, format, sort, groupKeyOf]);
 
   const shown = groups.slice(0, visible);
 
   function selectTab(value: WatchStatus) {
     setTab(value);
+    setFormat("all");
+    setVisible(PAGE_SIZE);
+  }
+
+  function onFormat(value: string) {
+    setFormat(value);
+    setVisible(PAGE_SIZE);
+  }
+
+  function onSort(value: string) {
+    setSort(value as SortKey);
     setVisible(PAGE_SIZE);
   }
 
@@ -179,29 +233,52 @@ export default function LibraryPage() {
         ))}
       </div>
 
-      <div className="relative mt-6">
-        <i
-          className="ti ti-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted"
-          aria-hidden="true"
-        />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder={`Search ${tabLabel.toLowerCase()}`}
-          aria-label={`Search ${tabLabel}`}
-          className="w-full border border-line bg-surface py-2 pl-9 pr-9 text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none"
-        />
-        {query ? (
-          <button
-            type="button"
-            onClick={() => onSearch("")}
-            aria-label="Clear search"
-            className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-muted transition-colors hover:text-ink"
-          >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
-        ) : null}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <i
+            className="ti ti-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted"
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder={`Search ${tabLabel.toLowerCase()}`}
+            aria-label={`Search ${tabLabel}`}
+            className="w-full border border-line bg-surface py-2 pl-9 pr-9 text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => onSearch("")}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-muted transition-colors hover:text-ink"
+            >
+              <i className="ti ti-x" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+
+        <div className="flex gap-3">
+          {formatOptions.length > 1 ? (
+            <Select
+              ariaLabel="Filter by format"
+              value={format}
+              align="right"
+              className="flex-1 sm:w-36 sm:flex-none"
+              options={formatOptions}
+              onValueChange={onFormat}
+            />
+          ) : null}
+          <Select
+            ariaLabel="Sort library"
+            value={sort}
+            align="right"
+            className="flex-1 sm:w-40 sm:flex-none"
+            options={SORT_OPTIONS}
+            onValueChange={onSort}
+          />
+        </div>
       </div>
 
       <div className="mt-6">
