@@ -6,6 +6,8 @@ import { useTheme } from "next-themes";
 import { useStore, type PersistedState } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { readAdultCookie, setAdultCookie, subscribeAdult } from "@/lib/adult";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { ImportEntry } from "@/lib/types";
 
 function generateCode(): string {
   const part = () => Math.random().toString(36).slice(2, 6);
@@ -21,6 +23,7 @@ export default function SettingsPage() {
   const setSyncCode = useStore((s) => s.setSyncCode);
   const exportState = useStore((s) => s.exportState);
   const replaceAll = useStore((s) => s.replaceAll);
+  const importEntries = useStore((s) => s.importEntries);
 
   const allowAdult = useSyncExternalStore(
     subscribeAdult,
@@ -28,9 +31,39 @@ export default function SettingsPage() {
     () => false,
   );
   const [codeInput, setCodeInput] = useState("");
+  const [importUser, setImportUser] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const runImport = async () => {
+    const user = importUser.trim();
+    if (!user) {
+      setMessage("Enter an AniList username.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/import?user=${encodeURIComponent(user)}`);
+      if (!res.ok) {
+        setMessage("Couldn't find that AniList user.");
+        return;
+      }
+      const data = (await res.json()) as { entries: ImportEntry[] };
+      if (!data.entries || data.entries.length === 0) {
+        setMessage("That list looks empty or private.");
+        return;
+      }
+      importEntries(data.entries);
+      setImportUser("");
+      setMessage(`Imported ${data.entries.length} titles from AniList.`);
+    } catch {
+      setMessage("Import failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggleAdult = (next: boolean) => {
     setAdultCookie(next);
@@ -155,17 +188,45 @@ export default function SettingsPage() {
 
       <section className="border-t border-line py-7">
         <h2 className="font-serif text-xl text-ink">Content</h2>
-        <label className="mt-3 flex items-center justify-between gap-4">
+        <div className="mt-3 flex items-center justify-between gap-4">
           <span className="text-sm text-muted">
             Show adult (18+) titles. Off by default.
           </span>
-          <input
-            type="checkbox"
+          <Checkbox
+            ariaLabel="Show adult titles"
             checked={allowAdult}
-            onChange={(e) => toggleAdult(e.target.checked)}
-            className="h-4 w-4 accent-accent"
+            onCheckedChange={toggleAdult}
           />
-        </label>
+        </div>
+      </section>
+
+      <section className="border-t border-line py-7">
+        <h2 className="font-serif text-xl text-ink">Import</h2>
+        <p className="mt-1 text-sm text-muted">
+          Bring your existing list over from an AniList username. Your statuses
+          and episode progress come with it.
+        </p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            value={importUser}
+            onChange={(e) => setImportUser(e.target.value)}
+            placeholder="AniList username"
+            className="flex-1 border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-ink"
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={runImport}
+            className="border border-ink px-4 py-2 text-xs uppercase tracking-wider text-ink transition-colors hover:bg-ink hover:text-bg disabled:opacity-50"
+          >
+            Import
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          MyAnimeList import isn&apos;t supported (their public list API is
+          retired). MAL users can re-import via AniList.
+        </p>
       </section>
 
       <section className="border-t border-line py-7">
@@ -187,7 +248,7 @@ export default function SettingsPage() {
                 Copy
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 disabled={busy}
@@ -198,12 +259,26 @@ export default function SettingsPage() {
               </button>
               <button
                 type="button"
+                onClick={() =>
+                  navigator.clipboard?.writeText(
+                    `${window.location.origin}/list/${syncCode}`,
+                  )
+                }
+                className="border border-line px-4 py-2 text-xs uppercase tracking-wider text-muted transition-colors hover:border-ink hover:text-ink"
+              >
+                Copy share link
+              </button>
+              <button
+                type="button"
                 onClick={disableSync}
                 className="border border-line px-4 py-2 text-xs uppercase tracking-wider text-muted transition-colors hover:border-ink hover:text-ink"
               >
                 Disable
               </button>
             </div>
+            <p className="text-xs text-muted">
+              Changes on this device now sync automatically.
+            </p>
           </div>
         ) : (
           <div className="mt-4 space-y-4">

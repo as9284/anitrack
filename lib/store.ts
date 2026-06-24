@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { MediaCard, WatchStatus } from "./types";
+import type { ImportEntry, MediaCard, WatchStatus } from "./types";
 
 export interface WatchEntry {
   id: number;
@@ -32,6 +32,7 @@ interface StoreState {
   setStatus: (id: number, status: WatchStatus) => void;
   setProgress: (id: number, progress: number) => void;
   setSyncCode: (code: string | null) => void;
+  importEntries: (list: ImportEntry[]) => void;
   replaceAll: (data: PersistedState) => void;
   exportState: () => PersistedState;
 }
@@ -111,6 +112,27 @@ export const useStore = create<StoreState>()(
         }),
 
       setSyncCode: (code) => set({ syncCode: code, updatedAt: Date.now() }),
+
+      importEntries: (list) =>
+        set((state) => {
+          const base = Date.now();
+          const entries = { ...state.entries };
+          list.forEach((item, index) => {
+            const existing = entries[item.id];
+            entries[item.id] = {
+              id: item.id,
+              status: item.status,
+              progress: item.progress,
+              title: item.title,
+              cover: item.cover,
+              episodes: item.episodes,
+              format: item.format,
+              addedAt: existing?.addedAt ?? base + (list.length - index),
+              updatedAt: base,
+            };
+          });
+          return { entries, updatedAt: base };
+        }),
 
       replaceAll: (data) =>
         set({

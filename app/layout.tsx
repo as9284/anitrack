@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ServiceWorkerRegister } from "@/components/service-worker";
+import { AutoSync } from "@/components/auto-sync";
+import { CommandPalette } from "@/components/command-palette";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,7 +28,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "AniTrack — Anime tracker & seasonal guide",
+    default: "AniTrack",
     template: "%s · AniTrack",
   },
   description: DESCRIPTION,
@@ -34,7 +36,7 @@ export const metadata: Metadata = {
   applicationName: "AniTrack",
   appleWebApp: { capable: true, title: "AniTrack", statusBarStyle: "default" },
   openGraph: {
-    title: "AniTrack — Anime tracker & seasonal guide",
+    title: "AniTrack",
     description: DESCRIPTION,
     siteName: "AniTrack",
     type: "website",
@@ -42,7 +44,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "AniTrack — Anime tracker & seasonal guide",
+    title: "AniTrack",
     description: DESCRIPTION,
   },
 };
@@ -79,6 +81,8 @@ export default function RootLayout({
           </main>
           <SiteFooter />
           <ServiceWorkerRegister />
+          <AutoSync />
+          <CommandPalette />
         </ThemeProvider>
       </body>
     </html>

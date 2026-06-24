@@ -1,10 +1,13 @@
 import { stripHtml } from "./utils";
 import type {
   AiringStatus,
+  ImportEntry,
   MediaCard,
   MediaDetail,
+  MediaMeta,
   MediaSeason,
   ScheduleItem,
+  WatchStatus,
 } from "./types";
 
 const ENDPOINT = "https://graphql.anilist.co";
@@ -45,8 +48,13 @@ interface RawMedia {
   nextAiringEpisode: RawAiring | null;
   isAdult: boolean;
   studios?: { nodes: { name: string }[] };
-  trailer?: { id: string; site: string } | null;
-  externalLinks?: { site: string; url: string; color: string | null }[];
+  trailer?: { id: string; site: string; thumbnail: string | null } | null;
+  externalLinks?: {
+    site: string;
+    url: string;
+    color: string | null;
+    type: string | null;
+  }[];
   relations?: {
     edges: {
       relationType: string;
@@ -142,6 +150,7 @@ function mapDetail(m: RawMedia): MediaDetail {
         site: l.site,
         url: l.url,
         color: l.color,
+        type: l.type,
       })) ?? [],
     relations:
       m.relations?.edges
@@ -175,18 +184,34 @@ export interface SeasonResult {
   hasNextPage: boolean;
 }
 
+export interface BrowseFilters {
+  genre?: string;
+  format?: string;
+  sort?: string;
+}
+
+function filterClause(filters: BrowseFilters): string {
+  const genre = filters.genre
+    ? `, genre_in: [${JSON.stringify(filters.genre)}]`
+    : "";
+  const format = filters.format ? `, format: ${filters.format}` : "";
+  return `${genre}${format}`;
+}
+
 export async function getSeason(
   season: MediaSeason,
   year: number,
   allowAdult: boolean,
   page = 1,
+  filters: BrowseFilters = {},
 ): Promise<SeasonResult> {
   const adultFilter = allowAdult ? "" : ", isAdult: false";
+  const sort = filters.sort ?? "POPULARITY_DESC";
   const query = `
     query ($season: MediaSeason, $year: Int, $page: Int) {
       Page(page: $page, perPage: 30) {
         pageInfo { total hasNextPage }
-        media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC${adultFilter}) {
+        media(season: $season, seasonYear: $year, type: ANIME, sort: ${sort}${filterClause(filters)}${adultFilter}) {
           ${CARD_FIELDS}
         }
       }
@@ -275,8 +300,8 @@ export async function getMedia(id: number): Promise<MediaDetail | null> {
         bannerImage
         description(asHtml: false)
         studios(isMain: true) { nodes { name } }
-        trailer { id site }
-        externalLinks { site url color }
+        trailer { id site thumbnail }
+        externalLinks { site url color type }
         relations {
           edges {
             relationType
@@ -308,12 +333,13 @@ export async function getMedia(id: number): Promise<MediaDetail | null> {
 export async function searchMedia(
   term: string,
   allowAdult: boolean,
+  filters: BrowseFilters = {},
 ): Promise<MediaCard[]> {
   const adultFilter = allowAdult ? "" : ", isAdult: false";
   const query = `
     query ($search: String) {
       Page(page: 1, perPage: 30) {
-        media(search: $search, type: ANIME, sort: SEARCH_MATCH${adultFilter}) {
+        media(search: $search, type: ANIME, sort: SEARCH_MATCH${filterClause(filters)}${adultFilter}) {
           ${CARD_FIELDS}
         }
       }
@@ -363,4 +389,148 @@ export async function getAiringForIds(ids: number[]): Promise<AiringStatus[]> {
         }
       : null,
   }));
+}
+
+function mapAniListStatus(status: string): WatchStatus {
+  switch (status) {
+    case "CURRENT":
+    case "REPEATING":
+      return "watching";
+    case "COMPLETED":
+      return "completed";
+    case "DROPPED":
+    case "PAUSED":
+      return "dropped";
+    default:
+      return "planning";
+  }
+}
+
+export async function importFromAniList(
+  userName: string,
+): Promise<ImportEntry[]> {
+  const query = `
+    query ($name: String) {
+      MediaListCollection(userName: $name, type: ANIME) {
+        lists {
+          entries {
+            status
+            progress
+            media {
+              id
+              title { romaji english native }
+              coverImage { large extraLarge color }
+              episodes
+              format
+            }
+          }
+        }
+      }
+    }
+  `;
+  const data = await aniFetch<{
+    MediaListCollection: {
+      lists: {
+        entries: {
+          status: string;
+          progress: number | null;
+          media: RawMedia | null;
+        }[];
+      }[];
+    } | null;
+  }>(query, { name: userName }, 0);
+
+  const out: ImportEntry[] = [];
+  const seen = new Set<number>();
+  for (const list of data.MediaListCollection?.lists ?? []) {
+    for (const entry of list.entries) {
+      const media = entry.media;
+      if (!media || seen.has(media.id)) continue;
+      seen.add(media.id);
+      out.push({
+        id: media.id,
+        status: mapAniListStatus(entry.status),
+        progress: entry.progress ?? 0,
+        title: pickTitle(media.title),
+        cover: pickCover(media.coverImage),
+        episodes: media.episodes,
+        format: media.format,
+      });
+    }
+  }
+  return out;
+}
+
+export async function getRecommendations(
+  ids: number[],
+  allowAdult: boolean,
+): Promise<MediaCard[]> {
+  if (ids.length === 0) return [];
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(id_in: $ids, type: ANIME) {
+          recommendations(sort: RATING_DESC, perPage: 8) {
+            nodes { mediaRecommendation { ${CARD_FIELDS} } }
+          }
+        }
+      }
+    }
+  `;
+  const data = await aniFetch<{
+    Page: {
+      media: {
+        recommendations: {
+          nodes: { mediaRecommendation: RawMedia | null }[];
+        };
+      }[];
+    };
+  }>(query, { ids: ids.slice(0, 50) }, 3600);
+
+  const exclude = new Set(ids);
+  const ranked = new Map<number, { card: MediaCard; score: number }>();
+  for (const media of data.Page.media) {
+    for (const node of media.recommendations?.nodes ?? []) {
+      const rec = node.mediaRecommendation;
+      if (!rec || exclude.has(rec.id)) continue;
+      if (!allowAdult && rec.isAdult) continue;
+      const existing = ranked.get(rec.id);
+      if (existing) existing.score += 1;
+      else ranked.set(rec.id, { card: mapCard(rec), score: 1 });
+    }
+  }
+
+  return [...ranked.values()]
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.card);
+}
+
+export async function getMetaForIds(ids: number[]): Promise<MediaMeta[]> {
+  const out: MediaMeta[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const data = await aniFetch<{
+      Page: {
+        media: { id: number; genres: string[]; duration: number | null }[];
+      };
+    }>(
+      `
+      query ($ids: [Int]) {
+        Page(page: 1, perPage: 50) {
+          media(id_in: $ids, type: ANIME) {
+            id
+            genres
+            duration
+          }
+        }
+      }
+    `,
+      { ids: chunk },
+      86400,
+    );
+    for (const m of data.Page.media) {
+      out.push({ id: m.id, genres: m.genres ?? [], duration: m.duration });
+    }
+  }
+  return out;
 }

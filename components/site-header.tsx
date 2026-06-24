@@ -11,6 +11,7 @@ const NAV = [
   { href: "/seasons", label: "Seasons" },
   { href: "/schedule", label: "Schedule" },
   { href: "/library", label: "Library" },
+  { href: "/stats", label: "Stats" },
 ];
 
 function isActive(pathname: string, href: string): boolean {

@@ -30,6 +30,14 @@ export default async function DetailPage({ params }: DetailPageProps) {
   const media = await getMedia(id);
   if (!media) notFound();
 
+  const streaming = media.externalLinks.filter((l) => l.type === "STREAMING");
+  const trailerUrl =
+    media.trailer?.site === "youtube"
+      ? `https://www.youtube.com/watch?v=${media.trailer.id}`
+      : media.trailer?.site === "dailymotion"
+        ? `https://www.dailymotion.com/video/${media.trailer.id}`
+        : null;
+
   const facts: { label: string; value: string }[] = [
     { label: "Format", value: formatLabel(media.format) },
     {
@@ -142,6 +150,56 @@ export default async function DetailPage({ params }: DetailPageProps) {
               <p className="whitespace-pre-line text-sm leading-relaxed text-ink/90">
                 {media.description}
               </p>
+            </div>
+          ) : null}
+
+          {streaming.length > 0 ? (
+            <div className="mt-6 border-t border-line pt-6">
+              <p className="kicker mb-3">Where to watch</p>
+              <div className="flex flex-wrap gap-2">
+                {streaming.map((link) => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 border border-line px-3 py-1.5 text-xs text-ink transition-colors hover:border-ink"
+                  >
+                    {link.site}
+                    <i
+                      className="ti ti-external-link text-muted"
+                      aria-hidden="true"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {trailerUrl ? (
+            <div className="mt-6 border-t border-line pt-6">
+              <p className="kicker mb-3">Trailer</p>
+              <a
+                href={trailerUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="relative block aspect-video max-w-md overflow-hidden border border-line bg-surface"
+              >
+                {media.trailer?.site === "youtube" && media.trailer.thumbnail ? (
+                  <Image
+                    src={media.trailer.thumbnail}
+                    alt="Trailer thumbnail"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 28rem"
+                    className="object-cover"
+                  />
+                ) : null}
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-12 w-12 items-center justify-center bg-bg/80 text-ink">
+                    <i className="ti ti-player-play text-xl" aria-hidden="true" />
+                  </span>
+                </span>
+              </a>
             </div>
           ) : null}
         </div>

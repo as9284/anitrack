@@ -33,6 +33,7 @@ export interface ExternalLink {
   site: string;
   url: string;
   color: string | null;
+  type: string | null;
 }
 
 export interface MediaDetail extends MediaCard {
@@ -45,9 +46,19 @@ export interface MediaDetail extends MediaCard {
   studios: string[];
   meanScore: number | null;
   popularity: number | null;
-  trailer: { id: string; site: string } | null;
+  trailer: { id: string; site: string; thumbnail: string | null } | null;
   externalLinks: ExternalLink[];
   relations: RelationEntry[];
+}
+
+export interface ImportEntry {
+  id: number;
+  status: WatchStatus;
+  progress: number;
+  title: string;
+  cover: string;
+  episodes: number | null;
+  format: string | null;
 }
 
 export interface ScheduleItem {
@@ -55,6 +66,12 @@ export interface ScheduleItem {
   airingAt: number;
   episode: number;
   media: MediaCard;
+}
+
+export interface MediaMeta {
+  id: number;
+  genres: string[];
+  duration: number | null;
 }
 
 export interface AiringStatus {

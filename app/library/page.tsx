@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
+import { Select } from "@/components/ui/select";
 import type { WatchStatus } from "@/lib/types";
 
 const TABS: { value: WatchStatus; label: string }[] = [
@@ -143,20 +144,19 @@ export default function LibraryPage() {
                 </div>
 
                 <div className="flex flex-none flex-col items-end gap-2">
-                  <select
-                    aria-label="Change status"
+                  <Select
+                    ariaLabel="Change status"
                     value={entry.status}
-                    onChange={(e) =>
-                      setStatus(entry.id, e.target.value as WatchStatus)
+                    align="right"
+                    className="w-36"
+                    options={TABS.map((t) => ({
+                      value: t.value,
+                      label: t.label,
+                    }))}
+                    onValueChange={(v) =>
+                      setStatus(entry.id, v as WatchStatus)
                     }
-                    className="border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-ink"
-                  >
-                    {TABS.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <button
                     type="button"
                     onClick={() => remove(entry.id)}

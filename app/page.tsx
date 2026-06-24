@@ -5,6 +5,7 @@ import { currentSeason, seasonLabel } from "@/lib/season";
 import { ADULT_COOKIE } from "@/lib/adult";
 import { AnimeCard } from "@/components/anime-card";
 import { UpNextList } from "@/components/up-next-list";
+import { RecommendationsRow } from "@/components/recommendations-row";
 import type { MediaCard } from "@/lib/types";
 
 export default async function HomePage() {
@@ -70,6 +71,8 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+
+      <RecommendationsRow />
     </div>
   );
 }
