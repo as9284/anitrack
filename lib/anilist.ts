@@ -233,6 +233,38 @@ export async function getSeason(
   };
 }
 
+// AniList's pageInfo.total is capped at 5000 and unreliable for season
+// queries, so count by paginating ids (~2 requests per season) instead.
+export async function getSeasonCount(
+  season: MediaSeason,
+  year: number,
+  allowAdult: boolean,
+): Promise<number> {
+  const adultFilter = allowAdult ? "" : ", isAdult: false";
+  const query = `
+    query ($season: MediaSeason, $year: Int, $page: Int) {
+      Page(page: $page, perPage: 50) {
+        pageInfo { hasNextPage }
+        media(season: $season, seasonYear: $year, type: ANIME${adultFilter}) {
+          id
+        }
+      }
+    }
+  `;
+  let count = 0;
+  let page = 1;
+  let hasNextPage = true;
+  while (hasNextPage) {
+    const data = await aniFetch<{
+      Page: { pageInfo: { hasNextPage: boolean }; media: { id: number }[] };
+    }>(query, { season, year, page }, 86400);
+    count += data.Page.media.length;
+    hasNextPage = data.Page.pageInfo.hasNextPage;
+    page += 1;
+  }
+  return count;
+}
+
 export async function getSchedule(
   start: number,
   end: number,

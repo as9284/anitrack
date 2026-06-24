@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { getSeason } from "@/lib/anilist";
+import { getSeason, getSeasonCount } from "@/lib/anilist";
 import { currentSeason, seasonLabel } from "@/lib/season";
 import { ADULT_COOKIE } from "@/lib/adult";
 import { AnimeCard } from "@/components/anime-card";
@@ -17,9 +17,12 @@ export default async function HomePage() {
   let total = 0;
   let failed = false;
   try {
-    const result = await getSeason(season, year, allowAdult);
+    const [result, count] = await Promise.all([
+      getSeason(season, year, allowAdult),
+      getSeasonCount(season, year, allowAdult),
+    ]);
     media = result.media;
-    total = result.total;
+    total = count;
   } catch {
     failed = true;
   }
