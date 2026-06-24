@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --bg: 250 248 243;
+  --surface: 255 254 251;
+  --text: 28 27 24;
+  --muted: 117 113 106;
+  --accent: 162 90 55;
+  --border: rgba(0, 0, 0, 0.13);
+  --sk-base: 235 231 222;
+  --sk-shine: 247 244 237;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: 20 19 16;
+  --surface: 27 26 22;
+  --text: 236 233 226;
+  --muted: 154 149 138;
+  --accent: 207 140 93;
+  --border: rgba(255, 255, 255, 0.13);
+  --sk-base: 39 37 32;
+  --sk-shine: 54 51 45;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--text));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: rgb(var(--accent));
+  color: #fff;
+}
+
+.kicker {
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: rgb(var(--muted));
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgb(var(--sk-base));
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgb(var(--sk-base)) 0%,
+    rgb(var(--sk-shine)) 50%,
+    rgb(var(--sk-base)) 100%
+  );
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
