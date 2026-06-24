@@ -28,6 +28,8 @@ interface StoreState {
   syncCode: string | null;
   updatedAt: number;
   add: (media: CardLike, status?: WatchStatus) => void;
+  quickAdd: (media: CardLike, status: WatchStatus) => void;
+  quickAddMany: (list: CardLike[], status: WatchStatus) => void;
   remove: (id: number) => void;
   setStatus: (id: number, status: WatchStatus) => void;
   setProgress: (id: number, progress: number) => void;
@@ -72,6 +74,58 @@ export const useStore = create<StoreState>()(
               },
             },
           };
+        }),
+
+      quickAdd: (media, status) =>
+        set((state) => {
+          const now = Date.now();
+          const existing = state.entries[media.id];
+          const progress =
+            status === "completed"
+              ? (media.episodes ?? 0)
+              : (existing?.progress ?? 0);
+          return {
+            updatedAt: now,
+            entries: {
+              ...state.entries,
+              [media.id]: {
+                id: media.id,
+                status,
+                progress,
+                title: media.title,
+                cover: media.cover,
+                episodes: media.episodes,
+                format: media.format,
+                addedAt: existing?.addedAt ?? now,
+                updatedAt: now,
+              },
+            },
+          };
+        }),
+
+      quickAddMany: (list, status) =>
+        set((state) => {
+          const base = Date.now();
+          const entries = { ...state.entries };
+          list.forEach((media, index) => {
+            const existing = entries[media.id];
+            const progress =
+              status === "completed"
+                ? (media.episodes ?? 0)
+                : (existing?.progress ?? 0);
+            entries[media.id] = {
+              id: media.id,
+              status,
+              progress,
+              title: media.title,
+              cover: media.cover,
+              episodes: media.episodes,
+              format: media.format,
+              addedAt: existing?.addedAt ?? base + (list.length - index),
+              updatedAt: base,
+            };
+          });
+          return { entries, updatedAt: base };
         }),
 
       remove: (id) =>

@@ -1,3 +1,12 @@
+import type { WatchStatus } from "./types";
+
+export const WATCH_STATUSES: { value: WatchStatus; label: string }[] = [
+  { value: "watching", label: "Watching" },
+  { value: "planning", label: "Plan to watch" },
+  { value: "completed", label: "Completed" },
+  { value: "dropped", label: "Dropped" },
+];
+
 export const GENRES = [
   "Action",
   "Adventure",

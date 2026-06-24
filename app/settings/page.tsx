@@ -7,6 +7,7 @@ import { useStore, type PersistedState } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { readAdultCookie, setAdultCookie, subscribeAdult } from "@/lib/adult";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PasteImport } from "@/components/paste-import";
 import type { ImportEntry } from "@/lib/types";
 
 function generateCode(): string {
@@ -227,6 +228,11 @@ export default function SettingsPage() {
           MyAnimeList import isn&apos;t supported (their public list API is
           retired). MAL users can re-import via AniList.
         </p>
+      </section>
+
+      <section className="border-t border-line py-7">
+        <h2 className="font-serif text-xl text-ink">Paste a list</h2>
+        <PasteImport />
       </section>
 
       <section className="border-t border-line py-7">

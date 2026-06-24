@@ -27,6 +27,7 @@ export interface RelationEntry {
   title: string;
   cover: string;
   format: string | null;
+  episodes: number | null;
 }
 
 export interface ExternalLink {

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { searchMedia } from "@/lib/anilist";
 import { ADULT_COOKIE } from "@/lib/adult";
 import { isValidGenre, isValidFormat } from "@/lib/constants";
-import { AnimeCard } from "@/components/anime-card";
+import { SelectableGrid } from "@/components/selectable-grid";
 import { SearchBox } from "@/components/search-box";
 import { FilterBar } from "@/components/filter-bar";
 import type { MediaCard } from "@/lib/types";
@@ -70,11 +70,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             No results for &ldquo;{query}&rdquo;.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4">
-            {results.map((item) => (
-              <AnimeCard key={item.id} media={item} />
-            ))}
-          </div>
+          <SelectableGrid media={results} />
         )}
       </div>
     </div>

@@ -15,6 +15,7 @@ interface SelectProps {
   ariaLabel: string;
   placeholder?: string;
   align?: "left" | "right";
+  side?: "top" | "bottom";
   className?: string;
 }
 
@@ -25,6 +26,7 @@ export function Select({
   ariaLabel,
   placeholder = "Select",
   align = "left",
+  side = "bottom",
   className,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
@@ -108,7 +110,8 @@ export function Select({
         <div
           ref={listRef}
           className={cn(
-            "absolute z-30 mt-1 max-h-64 min-w-full overflow-auto border border-line bg-bg py-1 shadow-xl",
+            "absolute z-30 max-h-64 min-w-full overflow-auto border border-line bg-bg py-1 shadow-xl",
+            side === "top" ? "bottom-full mb-1" : "top-full mt-1",
             align === "right" ? "right-0" : "left-0",
           )}
         >

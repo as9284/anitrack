@@ -63,6 +63,7 @@ interface RawMedia {
         title: RawTitle;
         coverImage: RawCover;
         format: string | null;
+        episodes: number | null;
         type: string;
       };
     }[];
@@ -161,6 +162,7 @@ function mapDetail(m: RawMedia): MediaDetail {
           title: pickTitle(e.node.title),
           cover: pickCover(e.node.coverImage),
           format: e.node.format,
+          episodes: e.node.episodes,
         })) ?? [],
   };
 }
@@ -309,6 +311,7 @@ export async function getMedia(id: number): Promise<MediaDetail | null> {
               id
               type
               format
+              episodes
               title { romaji english native }
               coverImage { large extraLarge color }
             }
@@ -351,6 +354,41 @@ export async function searchMedia(
     60,
   );
   return data.Page.media.map(mapCard);
+}
+
+export interface TitleMatch {
+  query: string;
+  candidates: MediaCard[];
+}
+
+export async function matchTitles(
+  titles: string[],
+  allowAdult: boolean,
+): Promise<TitleMatch[]> {
+  const adultFilter = allowAdult ? "" : ", isAdult: false";
+  const query = `
+    query ($search: String) {
+      Page(page: 1, perPage: 5) {
+        media(search: $search, type: ANIME, sort: SEARCH_MATCH${adultFilter}) {
+          ${CARD_FIELDS}
+        }
+      }
+    }
+  `;
+  const out: TitleMatch[] = [];
+  for (const term of titles) {
+    try {
+      const data = await aniFetch<{ Page: { media: RawMedia[] } }>(
+        query,
+        { search: term },
+        60,
+      );
+      out.push({ query: term, candidates: data.Page.media.map(mapCard) });
+    } catch {
+      out.push({ query: term, candidates: [] });
+    }
+  }
+  return out;
 }
 
 export async function getAiringForIds(ids: number[]): Promise<AiringStatus[]> {

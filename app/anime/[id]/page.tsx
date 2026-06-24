@@ -7,6 +7,7 @@ import { formatLabel, statusLabel } from "@/lib/utils";
 import { Poster } from "@/components/poster";
 import { Countdown } from "@/components/countdown";
 import { AnimeTracker } from "@/components/anime-tracker";
+import { FranchiseAdd } from "@/components/franchise-add";
 
 interface DetailPageProps {
   params: Promise<{ id: string }>;
@@ -208,6 +209,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
       {media.relations.length > 0 ? (
         <section className="mt-12 border-t border-line pt-8">
           <p className="kicker mb-5">Related</p>
+          <FranchiseAdd relations={media.relations} />
           <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4">
             {media.relations.slice(0, 8).map((rel) => (
               <Link key={rel.id} href={`/anime/${rel.id}`} className="block">

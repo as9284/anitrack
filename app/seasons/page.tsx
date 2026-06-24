@@ -5,7 +5,7 @@ import { getSeason } from "@/lib/anilist";
 import { currentSeason, isValidSeason, seasonLabel } from "@/lib/season";
 import { ADULT_COOKIE } from "@/lib/adult";
 import { isValidGenre, isValidFormat, isValidSort } from "@/lib/constants";
-import { AnimeCard } from "@/components/anime-card";
+import { SelectableGrid } from "@/components/selectable-grid";
 import { SeasonSwitcher } from "@/components/season-switcher";
 import { FilterBar } from "@/components/filter-bar";
 import type { MediaCard, MediaSeason } from "@/lib/types";
@@ -104,10 +104,8 @@ export default async function SeasonsPage({ searchParams }: SeasonsPageProps) {
         </p>
       ) : (
         <>
-          <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4">
-            {media.map((item, index) => (
-              <AnimeCard key={item.id} media={item} priority={index < 4} />
-            ))}
+          <div className="mt-8">
+            <SelectableGrid media={media} priorityCount={4} />
           </div>
 
           <div className="mt-10 flex items-center justify-between text-sm">
