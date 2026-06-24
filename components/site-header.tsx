@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
+import { useHydrated } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -21,8 +22,12 @@ function isActive(pathname: string, href: string): boolean {
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const isMac =
+    hydrated && typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -78,6 +83,12 @@ export function SiteHeader() {
           >
             <i className="ti ti-search text-[18px]" aria-hidden="true" />
           </Link>
+          <kbd
+            aria-hidden="true"
+            className="mr-1 hidden select-none items-center gap-0.5 border border-line px-1.5 py-1 font-sans text-[10px] leading-none tracking-wide text-muted sm:flex"
+          >
+            {isMac ? "⌘" : "Ctrl"} K
+          </kbd>
           <Link
             href="/settings"
             aria-label="Settings"
