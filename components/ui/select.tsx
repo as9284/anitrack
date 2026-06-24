@@ -110,7 +110,7 @@ export function Select({
         <div
           ref={listRef}
           className={cn(
-            "absolute z-30 max-h-64 min-w-full overflow-auto border border-line bg-bg py-1 shadow-xl",
+            "absolute z-30 max-h-64 min-w-full max-w-[calc(100vw-1rem)] overflow-auto border border-line bg-bg py-1 shadow-xl",
             side === "top" ? "bottom-full mb-1" : "top-full mt-1",
             align === "right" ? "right-0" : "left-0",
           )}
@@ -129,7 +129,9 @@ export function Select({
                   : "text-muted hover:bg-surface hover:text-ink",
               )}
             >
-              <span className="whitespace-nowrap">{option.label}</span>
+              <span className="whitespace-normal sm:whitespace-nowrap">
+                {option.label}
+              </span>
               {option.value === value ? (
                 <i className="ti ti-check text-accent" aria-hidden="true" />
               ) : null}

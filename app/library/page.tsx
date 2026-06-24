@@ -89,7 +89,7 @@ export default function LibraryPage() {
             {list.map((entry, index) => (
               <li
                 key={entry.id}
-                className={`flex items-center gap-4 py-4 ${
+                className={`flex flex-wrap items-center gap-x-4 gap-y-3 py-4 ${
                   index === 0 ? "" : "border-t border-line"
                 }`}
               >
@@ -121,7 +121,7 @@ export default function LibraryPage() {
                       aria-label="Decrease progress"
                       onClick={() => setProgress(entry.id, entry.progress - 1)}
                       disabled={entry.progress <= 0}
-                      className="flex h-7 w-7 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40 sm:h-7 sm:w-7"
                     >
                       <i className="ti ti-minus" aria-hidden="true" />
                     </button>
@@ -136,14 +136,14 @@ export default function LibraryPage() {
                         entry.episodes !== null &&
                         entry.progress >= entry.episodes
                       }
-                      className="flex h-7 w-7 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:opacity-40 sm:h-7 sm:w-7"
                     >
                       <i className="ti ti-plus" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
 
-                <div className="flex flex-none flex-col items-end gap-2">
+                <div className="flex w-full items-center justify-between gap-2 pl-[66px] sm:w-auto sm:flex-none sm:flex-col sm:items-end sm:pl-0">
                   <Select
                     ariaLabel="Change status"
                     value={entry.status}

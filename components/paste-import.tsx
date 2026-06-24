@@ -116,7 +116,7 @@ export function PasteImport() {
             onChange={(e) => setText(e.target.value)}
             rows={6}
             placeholder={"Fullmetal Alchemist: Brotherhood\nSteins;Gate\nCowboy Bebop"}
-            className="w-full resize-y border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-ink"
+            className="w-full resize-y border border-line bg-surface px-3 py-2 text-base text-ink outline-none focus:border-ink sm:text-sm"
           />
           <button
             type="button"

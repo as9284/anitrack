@@ -81,14 +81,16 @@ export default async function DetailPage({ params }: DetailPageProps) {
 
       <div className="mt-5 grid grid-cols-1 gap-8 sm:grid-cols-[200px_1fr]">
         <div>
-          <Poster
-            src={media.cover}
-            alt={media.title}
-            color={media.color}
-            sizes="200px"
-            priority
-            className="border border-line"
-          />
+          <div className="max-w-[200px] sm:max-w-none">
+            <Poster
+              src={media.cover}
+              alt={media.title}
+              color={media.color}
+              sizes="200px"
+              priority
+              className="border border-line"
+            />
+          </div>
           <div className="mt-4">
             <AnimeTracker
               media={{

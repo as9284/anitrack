@@ -213,7 +213,7 @@ export default function SettingsPage() {
             value={importUser}
             onChange={(e) => setImportUser(e.target.value)}
             placeholder="AniList username"
-            className="flex-1 border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-ink"
+            className="flex-1 border border-line bg-surface px-3 py-2 text-base text-ink outline-none focus:border-ink sm:text-sm"
           />
           <button
             type="button"
@@ -302,7 +302,7 @@ export default function SettingsPage() {
                 value={codeInput}
                 onChange={(e) => setCodeInput(e.target.value)}
                 placeholder="Enter an existing code"
-                className="flex-1 border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-ink"
+                className="flex-1 border border-line bg-surface px-3 py-2 text-base text-ink outline-none focus:border-ink sm:text-sm"
               />
               <button
                 type="button"
