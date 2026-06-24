@@ -49,11 +49,11 @@ export function AnimeTracker({ media }: AnimeTrackerProps) {
             key={s.value}
             type="button"
             onClick={() => setStatus(media.id, s.value)}
-            className={`border px-3 py-2 text-xs uppercase tracking-wider transition-colors ${
+            className={`flex min-h-[2.75rem] items-center justify-center text-balance px-2 py-2 text-center text-[11px] uppercase leading-tight tracking-wide transition-colors ${
               entry.status === s.value
                 ? "border-accent bg-accent text-white"
                 : "border-line text-muted hover:border-ink hover:text-ink"
-            }`}
+            } border`}
           >
             {s.label}
           </button>
