@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getRecommendations } from "@/lib/anilist";
-import { ADULT_COOKIE } from "@/lib/adult";
+import { resolveAllowAdult } from "@/lib/adult-server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,7 +14,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ items: [] });
   }
 
-  const allowAdult = (await cookies()).get(ADULT_COOKIE)?.value === "1";
+  const allowAdult = await resolveAllowAdult(searchParams);
 
   try {
     const items = await getRecommendations(ids, allowAdult);

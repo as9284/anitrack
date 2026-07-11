@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { matchTitles } from "@/lib/anilist";
-import { ADULT_COOKIE } from "@/lib/adult";
+import { resolveAllowAdult } from "@/lib/adult-server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url);
+
   let body: { titles?: unknown };
   try {
     body = (await request.json()) as { titles?: unknown };
@@ -24,8 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No titles provided" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const allowAdult = cookieStore.get(ADULT_COOKIE)?.value === "1";
+  const allowAdult = await resolveAllowAdult(searchParams);
 
   try {
     const matches = await matchTitles(titles, allowAdult);
