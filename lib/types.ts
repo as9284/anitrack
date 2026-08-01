@@ -14,6 +14,7 @@ export interface MediaCard {
   color: string | null;
   format: string | null;
   episodes: number | null;
+  duration: number | null;
   averageScore: number | null;
   genres: string[];
   nextAiringEpisode: AiringInfo | null;
@@ -41,7 +42,6 @@ export interface MediaDetail extends MediaCard {
   banner: string | null;
   description: string;
   native: string | null;
-  duration: number | null;
   status: string | null;
   season: MediaSeason | null;
   studios: string[];

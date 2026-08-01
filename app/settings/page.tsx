@@ -15,6 +15,26 @@ function generateCode(): string {
   return `${part()}-${part()}-${part()}`;
 }
 
+function CalendarLink({ label, url }: { label: string; url: string }) {
+  const ready = url.startsWith("http");
+  return (
+    <div className="flex items-center justify-between gap-3 border border-line px-3 py-2">
+      <div className="min-w-0">
+        <p className="kicker">{label}</p>
+        <code className="block truncate font-mono text-sm text-ink">{url}</code>
+      </div>
+      <button
+        type="button"
+        disabled={!ready}
+        onClick={() => navigator.clipboard?.writeText(url)}
+        className="flex-none text-xs text-muted transition-colors hover:text-ink disabled:opacity-50"
+      >
+        Copy
+      </button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const hydrated = useHydrated();
   const router = useRouter();
@@ -31,6 +51,8 @@ export default function SettingsPage() {
     readAdultCookie,
     () => false,
   );
+  const origin = hydrated ? window.location.origin : "";
+  const adultQuery = allowAdult ? "?adult=1" : "";
   const [codeInput, setCodeInput] = useState("");
   const [importUser, setImportUser] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -315,6 +337,31 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+      </section>
+
+      <section className="border-t border-line py-7">
+        <h2 className="font-serif text-xl text-ink">Calendar</h2>
+        <p className="mt-1 text-sm text-muted">
+          Subscribe to a live calendar of airing episodes. In Google Calendar:
+          Add by URL → paste the link. Refreshes on its own every day or so.
+        </p>
+        <div className="mt-4 space-y-3">
+          {hydrated && syncCode ? (
+            <CalendarLink
+              label="Watching"
+              url={`${origin}/api/calendar/${syncCode}${adultQuery}`}
+            />
+          ) : null}
+          <CalendarLink
+            label="Everything airing"
+            url={hydrated ? `${origin}/api/calendar${adultQuery}` : "…"}
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          {hydrated && syncCode
+            ? "Watching covers the shows you're watching (60 days ahead); Everything airing covers the next 2 weeks."
+            : "This covers everything airing (2 weeks). Enable cloud sync to also get a personal feed for your watching list."}
+        </p>
       </section>
 
       <section className="border-t border-line py-7">

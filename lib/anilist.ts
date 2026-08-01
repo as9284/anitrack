@@ -120,6 +120,7 @@ function mapCard(m: RawMedia): MediaCard {
     color: m.coverImage.color,
     format: m.format,
     episodes: m.episodes,
+    duration: m.duration ?? null,
     averageScore: m.averageScore,
     genres: m.genres ?? [],
     nextAiringEpisode: m.nextAiringEpisode
@@ -173,6 +174,7 @@ const CARD_FIELDS = `
   coverImage { large extraLarge color }
   format
   episodes
+  duration
   averageScore
   genres
   seasonYear
@@ -269,6 +271,7 @@ export async function getSchedule(
   start: number,
   end: number,
   allowAdult: boolean,
+  maxPages = 6,
 ): Promise<ScheduleItem[]> {
   const query = `
     query ($start: Int, $end: Int, $page: Int) {
@@ -290,7 +293,7 @@ export async function getSchedule(
   let page = 1;
   let hasNext = true;
 
-  while (hasNext && page <= 6) {
+  while (hasNext && page <= maxPages) {
     const data = await aniFetch<{
       Page: {
         pageInfo: { hasNextPage: boolean };
@@ -573,6 +576,85 @@ export async function getRecommendations(
   return [...ranked.values()]
     .sort((a, b) => b.score - a.score)
     .map((entry) => entry.card);
+}
+
+export interface CalendarAiring {
+  scheduleId: number;
+  airingAt: number;
+  episode: number;
+  mediaId: number;
+  title: string;
+  duration: number | null;
+  isAdult: boolean;
+}
+
+export async function getScheduleForIds(
+  ids: number[],
+  start: number,
+  end: number,
+): Promise<CalendarAiring[]> {
+  const query = `
+    query ($ids: [Int], $start: Int, $end: Int, $page: Int) {
+      Page(page: $page, perPage: 50) {
+        pageInfo { hasNextPage }
+        airingSchedules(mediaId_in: $ids, airingAt_greater: $start, airingAt_lesser: $end, sort: TIME) {
+          id
+          airingAt
+          episode
+          media {
+            id
+            title { romaji english }
+            duration
+            isAdult
+          }
+        }
+      }
+    }
+  `;
+
+  if (ids.length === 0) return [];
+
+  const out: CalendarAiring[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    let page = 1;
+    let hasNext = true;
+    // A failure here propagates on purpose: serving a partial calendar would
+    // make subscribers delete the episodes we failed to fetch.
+    while (hasNext && page <= 10) {
+      const data = await aniFetch<{
+        Page: {
+          pageInfo: { hasNextPage: boolean };
+          airingSchedules: {
+            id: number;
+            airingAt: number;
+            episode: number;
+            media: {
+              id: number;
+              title: RawTitle;
+              duration: number | null;
+              isAdult: boolean;
+            } | null;
+          }[];
+        };
+      }>(query, { ids: chunk, start, end, page }, 3600);
+      for (const s of data.Page.airingSchedules) {
+        if (!s.media) continue;
+        out.push({
+          scheduleId: s.id,
+          airingAt: s.airingAt,
+          episode: s.episode,
+          mediaId: s.media.id,
+          title: pickTitle(s.media.title),
+          duration: s.media.duration ?? null,
+          isAdult: s.media.isAdult,
+        });
+      }
+      hasNext = data.Page.pageInfo.hasNextPage;
+      page += 1;
+    }
+  }
+  return out;
 }
 
 export interface RelationLinks {
