@@ -81,3 +81,11 @@ export interface AiringStatus {
   episodes: number | null;
   nextAiringEpisode: AiringInfo | null;
 }
+
+export interface NotifyMedia {
+  id: number;
+  title: string;
+  cover: string;
+  episodes: number | null;
+  nextAiringEpisode: AiringInfo | null;
+}

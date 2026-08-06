@@ -1,14 +1,44 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useStore, type PersistedState } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { readAdultCookie, setAdultCookie, subscribeAdult } from "@/lib/adult";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select } from "@/components/ui/select";
 import { PasteImport } from "@/components/paste-import";
+import {
+  DEFAULT_LEAD,
+  disablePush,
+  enablePush,
+  getExistingSubscription,
+  getRegistration,
+  pushSupported,
+  readLead,
+  saveSubscription,
+  watchingIds,
+  writeLead,
+} from "@/lib/push-client";
 import type { ImportEntry } from "@/lib/types";
+
+type PushState =
+  | "loading"
+  | "unsupported"
+  | "unavailable"
+  | "blocked"
+  | "off"
+  | "on";
+
+const LEAD_OPTIONS = [
+  { value: "0", label: "At air time" },
+  { value: "10", label: "10 minutes before" },
+  { value: "30", label: "30 minutes before" },
+  { value: "60", label: "1 hour before" },
+  { value: "180", label: "3 hours before" },
+  { value: "1440", label: "1 day before" },
+];
 
 function generateCode(): string {
   const part = () => Math.random().toString(36).slice(2, 6);
@@ -40,6 +70,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
+  const entries = useStore((s) => s.entries);
   const syncCode = useStore((s) => s.syncCode);
   const setSyncCode = useStore((s) => s.setSyncCode);
   const exportState = useStore((s) => s.exportState);
@@ -57,7 +88,126 @@ export default function SettingsPage() {
   const [importUser, setImportUser] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pushState, setPushState] = useState<PushState>("loading");
+  const [lead, setLead] = useState(DEFAULT_LEAD);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const watching = watchingIds(entries);
+
+  // Resolve notification state on mount. Every setState lands in a .then so we
+  // never set state synchronously in the effect body.
+  useEffect(() => {
+    let aborted = false;
+
+    const resolve = async (): Promise<PushState> => {
+      if (!pushSupported()) return "unsupported";
+      const registration = await getRegistration();
+      if (!registration) return "unavailable";
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) return "on";
+      return Notification.permission === "denied" ? "blocked" : "off";
+    };
+
+    resolve()
+      .then((state) => {
+        if (aborted) return;
+        setPushState(state);
+        setLead(readLead());
+      })
+      .catch(() => {
+        if (!aborted) setPushState("unavailable");
+      });
+
+    return () => {
+      aborted = true;
+    };
+  }, []);
+
+  const enableNotifications = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await enablePush(watching, lead);
+      setPushState("on");
+      setMessage(
+        watching.length > 0
+          ? `Notifications on for the ${watching.length} show${
+              watching.length === 1 ? "" : "s"
+            } you're watching.`
+          : "Notifications on. Mark something as watching to start getting alerts.",
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "Permission denied") {
+        setPushState("blocked");
+        setMessage(
+          "Your browser blocked notifications. Allow them for this site, then try again.",
+        );
+      } else {
+        setMessage("We couldn't turn notifications on. Give it another try.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disableNotifications = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await disablePush();
+      setPushState("off");
+      setMessage("Notifications off on this device.");
+    } catch {
+      setMessage("That didn't work. Give it another try.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeLead = async (value: string) => {
+    const next = parseInt(value, 10);
+    setLead(next);
+    writeLead(next);
+    if (pushState !== "on") return;
+    const subscription = await getExistingSubscription();
+    if (!subscription) return;
+    await saveSubscription(subscription, watching, next).catch(() => {
+      setMessage("We couldn't save that timing. Give it another try.");
+    });
+  };
+
+  const sendTestNotification = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const subscription = await getExistingSubscription();
+      if (!subscription) {
+        setPushState("off");
+        setMessage("This device isn't subscribed. Turn notifications on first.");
+        return;
+      }
+      const res = await fetch("/api/push/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      });
+      if (res.status === 404 || res.status === 410) {
+        setPushState("off");
+        setMessage(
+          "That subscription expired. Turn notifications off and on again.",
+        );
+        return;
+      }
+      if (!res.ok) throw new Error();
+      setMessage(
+        "Test sent. It should appear in Windows notifications within a few seconds — if nothing shows up, check Windows Settings → Notifications and make sure Focus assist is off.",
+      );
+    } catch {
+      setMessage("The test didn't go through. Give it another try.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const runImport = async () => {
     const user = importUser.trim();
@@ -337,6 +487,89 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+      </section>
+
+      <section className="border-t border-line py-7">
+        <h2 className="font-serif text-xl text-ink">Notifications</h2>
+        <p className="mt-1 text-sm text-muted">
+          Get a desktop notification when an episode from your watching list is
+          about to air. Set per device — turn it on wherever you want alerts.
+        </p>
+
+        {pushState === "on" ? (
+          <div className="mt-4 space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-muted">Notify me</span>
+              <Select
+                ariaLabel="Notification timing"
+                align="right"
+                value={String(lead)}
+                options={LEAD_OPTIONS}
+                onValueChange={changeLead}
+              />
+            </div>
+            <p className="text-xs text-muted">
+              Watching {watching.length} show
+              {watching.length === 1 ? "" : "s"}. Your list keeps itself in sync
+              — mark something as watching and it&apos;s covered.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={sendTestNotification}
+                className="border border-ink px-4 py-2 text-xs uppercase tracking-wider text-ink transition-colors hover:bg-ink hover:text-bg disabled:opacity-50"
+              >
+                Send a test
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={disableNotifications}
+                className="border border-line px-4 py-2 text-xs uppercase tracking-wider text-muted transition-colors hover:border-ink hover:text-ink disabled:opacity-50"
+              >
+                Turn off
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {pushState === "off" ? (
+          <div className="mt-4 space-y-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={enableNotifications}
+              className="border border-ink px-4 py-2 text-xs uppercase tracking-wider text-ink transition-colors hover:bg-ink hover:text-bg disabled:opacity-50"
+            >
+              Turn on notifications
+            </button>
+            <p className="text-xs text-muted">
+              Your browser will ask for permission. On Windows, install AniTrack
+              as an app for the most reliable delivery.
+            </p>
+          </div>
+        ) : null}
+
+        {pushState === "blocked" ? (
+          <p className="mt-4 text-sm text-muted">
+            Notifications are blocked for this site. Allow them in your
+            browser&apos;s site permissions, then reload this page.
+          </p>
+        ) : null}
+
+        {pushState === "unavailable" ? (
+          <p className="mt-4 text-sm text-muted">
+            The service worker isn&apos;t running here. Notifications need a
+            production build — they won&apos;t work in local development.
+          </p>
+        ) : null}
+
+        {pushState === "unsupported" ? (
+          <p className="mt-4 text-sm text-muted">
+            This browser doesn&apos;t support push notifications.
+          </p>
+        ) : null}
       </section>
 
       <section className="border-t border-line py-7">

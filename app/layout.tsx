@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ServiceWorkerRegister } from "@/components/service-worker";
 import { AutoSync } from "@/components/auto-sync";
+import { PushSync } from "@/components/push-sync";
 import { CommandPalette } from "@/components/command-palette";
 
 const inter = Inter({
@@ -82,6 +83,7 @@ export default function RootLayout({
           <SiteFooter />
           <ServiceWorkerRegister />
           <AutoSync />
+          <PushSync />
           <CommandPalette />
         </ThemeProvider>
       </body>

@@ -6,6 +6,7 @@ import type {
   MediaDetail,
   MediaMeta,
   MediaSeason,
+  NotifyMedia,
   ScheduleItem,
   WatchStatus,
 } from "./types";
@@ -454,6 +455,53 @@ export async function getAiringForIds(ids: number[]): Promise<AiringStatus[]> {
   return data.Page.media.map((m) => ({
     id: m.id,
     status: m.status,
+    episodes: m.episodes,
+    nextAiringEpisode: m.nextAiringEpisode
+      ? {
+          airingAt: m.nextAiringEpisode.airingAt,
+          episode: m.nextAiringEpisode.episode,
+        }
+      : null,
+  }));
+}
+
+/**
+ * Airing data plus the bits a notification needs to render (title, cover).
+ * Cached for 5 minutes — the notification dispatcher runs on that cadence.
+ */
+export async function getAiringForNotify(
+  ids: number[],
+): Promise<NotifyMedia[]> {
+  if (ids.length === 0) return [];
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(id_in: $ids, type: ANIME) {
+          id
+          title { romaji english native }
+          coverImage { large extraLarge color }
+          episodes
+          nextAiringEpisode { airingAt episode }
+        }
+      }
+    }
+  `;
+  const data = await aniFetch<{
+    Page: {
+      media: {
+        id: number;
+        title: RawTitle;
+        coverImage: RawCover;
+        episodes: number | null;
+        nextAiringEpisode: RawAiring | null;
+      }[];
+    };
+  }>(query, { ids: ids.slice(0, 50) }, 300);
+
+  return data.Page.media.map((m) => ({
+    id: m.id,
+    title: pickTitle(m.title),
+    cover: pickCover(m.coverImage),
     episodes: m.episodes,
     nextAiringEpisode: m.nextAiringEpisode
       ? {

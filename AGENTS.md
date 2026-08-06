@@ -50,8 +50,37 @@ Browser (PWA, local-first)
                 ├─ /api/meta        ← genres/duration for stats
                 ├─ /api/recommend   ← AniList recommendations for tracked ids
                 ├─ /api/import       ← import a list by AniList username
-                └─ /api/sync/[code] ← Upstash GET/SET (JSON blob)
+                ├─ /api/sync/[code] ← Upstash GET/SET (JSON blob)
+                └─ /api/push/*      ← episode notifications (see below)
 ```
+
+### Episode notifications
+
+Opt-in Web Push, per device. This is the one place where user state lives
+server-side: to notify while the app is closed, Upstash has to hold the push
+subscription plus the ids to watch. It stays anonymous — keyed by a hash of the
+push endpoint, no account, independent of cloud sync.
+
+```
+Settings toggle → pushManager.subscribe()
+      → POST /api/push/subscribe   ← {endpoint, keys, ids, lead} in Upstash
+components/push-sync.tsx           ← re-POSTs ids whenever "watching" changes
+
+QStash cron (*/5) → POST /api/push/dispatch
+      → verify Upstash-Signature → read all subs → batch AniList airing query
+      → for each (sub, media) inside its lead window: NX-claim, web-push send
+```
+
+- Notify on **"watching" entries only**; `watchingIds()` in `lib/push-client.ts`
+  is the single definition of that.
+- Dedupe is an `SET NX EX` claim per `(sub, media, episode)` — overlapping ticks
+  can't double-send. A transient send failure releases the claim so the next
+  tick retries; a 404/410 from the push service prunes the subscription.
+- Polling beats scheduling one message per episode: a show on hiatus has
+  `nextAiringEpisode: null`, so a chain of delayed messages would have nothing
+  to reschedule from and would silently die. The poll self-heals.
+- The service worker only registers in production, so notifications cannot be
+  tested with `npm run dev` — use `npm run build && npm run start`.
 
 Countdowns are computed **client-side** from AniList's `airingAt` UNIX
 timestamp (see `components/countdown.tsx` + `lib/hooks.ts` `useNow`). One fetch,
@@ -142,11 +171,28 @@ expectations (e.g. `recommendations` takes `mediaId`, not `mediaId_in`).
 
 ## Environment
 
-`.env.local` (gitignored) holds Upstash creds; only cloud sync needs them:
+`.env.local` (gitignored). Upstash creds are needed by cloud sync and
+notifications; the rest are notifications only:
 
 ```
 UPSTASH_REDIS_REST_URL=...
 UPSTASH_REDIS_REST_TOKEN=...
+
+# Web Push — generate once with `npx web-push generate-vapid-keys`
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
+
+# QStash — copy from the Upstash console (QStash → Signing keys)
+QSTASH_CURRENT_SIGNING_KEY=...
+QSTASH_NEXT_SIGNING_KEY=...
 ```
+
+All of these must also be set in the Vercel project, and the same VAPID keypair
+must be kept forever — rotating it invalidates every existing subscription.
+
+The recurring dispatch is a QStash schedule (Upstash console → QStash →
+Schedules), `*/5 * * * *` → `POST https://<site>/api/push/dispatch`. Without it
+subscriptions are stored but nothing is ever sent.
 
 Set `NEXT_PUBLIC_SITE_URL` in production so OG/Twitter image URLs are absolute.
