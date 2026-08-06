@@ -1,13 +1,18 @@
+import { currentSeason } from "./season";
 import { stripHtml } from "./utils";
 import type {
   AiringStatus,
+  DiscoverCandidate,
+  DiscoverSource,
   ImportEntry,
   MediaCard,
   MediaDetail,
   MediaMeta,
   MediaSeason,
+  MediaTag,
   NotifyMedia,
   ScheduleItem,
+  TasteMeta,
   WatchStatus,
 } from "./types";
 
@@ -49,6 +54,12 @@ interface RawMedia {
   nextAiringEpisode: RawAiring | null;
   isAdult: boolean;
   studios?: { nodes: { name: string }[] };
+  tags?: {
+    name: string;
+    rank: number | null;
+    category?: string | null;
+    isGeneralSpoiler: boolean;
+  }[];
   trailer?: { id: string; site: string; thumbnail: string | null } | null;
   externalLinks?: {
     site: string;
@@ -764,6 +775,280 @@ export async function getRelationsForIds(
       }
     } catch {
       // On failure, leave these ids ungrouped rather than breaking the page.
+    }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Discover
+ *
+ * Two AniList gotchas drive the shape of everything below:
+ *
+ *  1. `tag_in` / `genre_in` are AND, not OR — `tag_in: ["Time Loop",
+ *     "Iyashikei"]` matches titles carrying *both* and returns nothing.
+ *     So every pool is fetched one term at a time with the singular
+ *     `tag:` / `genre:` args. That's more requests, but each one is a
+ *     stable, profile-independent cache key shared by every visitor,
+ *     which is also what keeps the user's taste off the server.
+ *
+ *  2. `Media.tags` takes no `sort` argument; it already comes back
+ *     rank-descending.
+ * ------------------------------------------------------------------ */
+
+/** Below this rank a tag is noise — a handful of stray user votes. */
+const MIN_TAG_RANK = 50;
+
+const CANDIDATE_FIELDS = `
+  ${CARD_FIELDS}
+  popularity
+  status
+  studios(isMain: true) { nodes { name } }
+  tags { name rank category isGeneralSpoiler }
+  relations { edges { relationType node { id type } } }
+`;
+
+function mapTags(m: RawMedia): MediaTag[] {
+  return (m.tags ?? [])
+    .filter((t) => (t.rank ?? 0) >= MIN_TAG_RANK)
+    .map((t) => ({
+      name: t.name,
+      rank: t.rank ?? 0,
+      category: t.category ?? null,
+      spoiler: t.isGeneralSpoiler,
+    }));
+}
+
+function mapPrequels(m: RawMedia): number[] {
+  return (m.relations?.edges ?? [])
+    .filter((e) => e.relationType === "PREQUEL" && e.node.type === "ANIME")
+    .map((e) => e.node.id);
+}
+
+function mapCandidate(
+  m: RawMedia,
+  source: DiscoverSource,
+  sourceTerm: string,
+  crowdRating: number | null = null,
+): DiscoverCandidate {
+  return {
+    ...mapCard(m),
+    popularity: m.popularity ?? null,
+    status: m.status ?? null,
+    studios: m.studios?.nodes.map((s) => s.name) ?? [],
+    tags: mapTags(m),
+    prequelIds: mapPrequels(m),
+    source,
+    sourceTerm,
+    crowdRating,
+  };
+}
+
+export type DiscoverMode = "tag" | "genre" | "gems" | "studio";
+
+/**
+ * One candidate pool for one term. `gems` restricts to well-reviewed titles
+ * hardly anyone has seen — that's the whole point of the shelf, so the
+ * popularity ceiling is deliberately aggressive.
+ */
+export async function discoverPool(
+  mode: Exclude<DiscoverMode, "studio">,
+  term: string,
+  allowAdult: boolean,
+): Promise<DiscoverCandidate[]> {
+  const adultFilter = allowAdult ? "" : ", isAdult: false";
+  const selector =
+    mode === "tag" ? "tag: $term, minimumTagRank: 55" : "genre: $term";
+  const quality =
+    mode === "gems"
+      ? "averageScore_greater: 74, popularity_lesser: 60000"
+      : "averageScore_greater: 62";
+
+  const query = `
+    query ($term: String) {
+      Page(page: 1, perPage: 24) {
+        media(
+          type: ANIME
+          ${selector}
+          ${quality}
+          sort: SCORE_DESC
+          format_not_in: [MUSIC]
+          ${adultFilter}
+        ) {
+          ${CANDIDATE_FIELDS}
+        }
+      }
+    }
+  `;
+
+  const source: DiscoverSource = mode === "gems" ? "gems" : mode;
+  const data = await aniFetch<{ Page: { media: RawMedia[] } }>(
+    query,
+    { term },
+    86400,
+  );
+  return data.Page.media.map((m) => mapCandidate(m, source, term));
+}
+
+export async function discoverByStudio(
+  name: string,
+  allowAdult: boolean,
+): Promise<DiscoverCandidate[]> {
+  const query = `
+    query ($name: String) {
+      Studio(search: $name) {
+        name
+        media(sort: SCORE_DESC, isMain: true, perPage: 20) {
+          nodes { ${CANDIDATE_FIELDS} }
+        }
+      }
+    }
+  `;
+  const data = await aniFetch<{
+    Studio: { name: string; media: { nodes: RawMedia[] } } | null;
+  }>(query, { name }, 86400);
+
+  const studio = data.Studio;
+  if (!studio) return [];
+  // Studio.media has no isAdult argument, so filter after mapping.
+  return studio.media.nodes
+    .filter((m) => allowAdult || !m.isAdult)
+    .filter((m) => m.format !== "MUSIC")
+    .map((m) => mapCandidate(m, "studio", studio.name));
+}
+
+/**
+ * AniList's crowd recommendations, kept attributed to the seed that produced
+ * them so the UI can say "because you finished X" and mean it.
+ */
+export async function discoverRecs(
+  ids: number[],
+  allowAdult: boolean,
+): Promise<DiscoverCandidate[]> {
+  if (ids.length === 0) return [];
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(id_in: $ids, type: ANIME) {
+          id
+          recommendations(sort: RATING_DESC, perPage: 10) {
+            nodes {
+              rating
+              mediaRecommendation { ${CANDIDATE_FIELDS} }
+            }
+          }
+        }
+      }
+    }
+  `;
+  const data = await aniFetch<{
+    Page: {
+      media: {
+        id: number;
+        recommendations: {
+          nodes: {
+            rating: number | null;
+            mediaRecommendation: RawMedia | null;
+          }[];
+        } | null;
+      }[];
+    };
+  }>(query, { ids: ids.slice(0, 50) }, 21600);
+
+  // Keep one entry per recommended title, attributed to its strongest seed.
+  const best = new Map<number, DiscoverCandidate>();
+  for (const seed of data.Page.media) {
+    for (const node of seed.recommendations?.nodes ?? []) {
+      const rec = node.mediaRecommendation;
+      if (!rec) continue;
+      if (!allowAdult && rec.isAdult) continue;
+      if (rec.format === "MUSIC") continue;
+      const rating = node.rating ?? 0;
+      const existing = best.get(rec.id);
+      if (existing && (existing.crowdRating ?? 0) >= rating) continue;
+      best.set(rec.id, mapCandidate(rec, "recs", String(seed.id), rating));
+    }
+  }
+  return [...best.values()];
+}
+
+/**
+ * Cold-start pools — no profile involved, so this is one globally cached
+ * request. `sourceTerm` names the shelf each title belongs to.
+ */
+export async function discoverEditorial(
+  allowAdult: boolean,
+): Promise<DiscoverCandidate[]> {
+  const adultFilter = allowAdult ? "" : ", isAdult: false";
+  const { season, year } = currentSeason();
+  const query = `
+    query ($season: MediaSeason, $year: Int) {
+      greats: Page(page: 1, perPage: 40) {
+        media(type: ANIME, sort: SCORE_DESC, popularity_greater: 150000, format_not_in: [MUSIC]${adultFilter}) {
+          ${CANDIDATE_FIELDS}
+        }
+      }
+      seasonal: Page(page: 1, perPage: 40) {
+        media(type: ANIME, season: $season, seasonYear: $year, sort: SCORE_DESC, format_not_in: [MUSIC]${adultFilter}) {
+          ${CANDIDATE_FIELDS}
+        }
+      }
+      gems: Page(page: 1, perPage: 40) {
+        media(type: ANIME, sort: SCORE_DESC, averageScore_greater: 76, popularity_lesser: 40000, format_not_in: [MUSIC]${adultFilter}) {
+          ${CANDIDATE_FIELDS}
+        }
+      }
+    }
+  `;
+  const data = await aniFetch<{
+    greats: { media: RawMedia[] };
+    seasonal: { media: RawMedia[] };
+    gems: { media: RawMedia[] };
+  }>(query, { season, year }, 86400);
+
+  return [
+    ...data.greats.media.map((m) => mapCandidate(m, "editorial", "greats")),
+    ...data.seasonal.media.map((m) => mapCandidate(m, "editorial", "seasonal")),
+    ...data.gems.media.map((m) => mapCandidate(m, "editorial", "gems")),
+  ];
+}
+
+/** Tags, genres, studios and shape for titles the user already tracks. */
+export async function getTasteMeta(ids: number[]): Promise<TasteMeta[]> {
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(id_in: $ids, type: ANIME) {
+          id
+          genres
+          format
+          episodes
+          seasonYear
+          studios(isMain: true) { nodes { name } }
+          tags { name rank category isGeneralSpoiler }
+        }
+      }
+    }
+  `;
+
+  const out: TasteMeta[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const data = await aniFetch<{ Page: { media: RawMedia[] } }>(
+      query,
+      { ids: chunk },
+      86400,
+    );
+    for (const m of data.Page.media) {
+      out.push({
+        id: m.id,
+        genres: m.genres ?? [],
+        tags: mapTags(m),
+        studios: m.studios?.nodes.map((s) => s.name) ?? [],
+        format: m.format,
+        episodes: m.episodes,
+        seasonYear: m.seasonYear,
+      });
     }
   }
   return out;
