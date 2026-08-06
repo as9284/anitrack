@@ -15,6 +15,7 @@ import {
   enablePush,
   getExistingSubscription,
   getRegistration,
+  getVapidKey,
   pushSupported,
   readLead,
   saveSubscription,
@@ -26,6 +27,7 @@ import type { ImportEntry } from "@/lib/types";
 type PushState =
   | "loading"
   | "unsupported"
+  | "unconfigured"
   | "unavailable"
   | "blocked"
   | "off"
@@ -101,6 +103,7 @@ export default function SettingsPage() {
 
     const resolve = async (): Promise<PushState> => {
       if (!pushSupported()) return "unsupported";
+      if (!(await getVapidKey())) return "unconfigured";
       const registration = await getRegistration();
       if (!registration) return "unavailable";
       const subscription = await registration.pushManager.getSubscription();
@@ -141,6 +144,13 @@ export default function SettingsPage() {
         setPushState("blocked");
         setMessage(
           "Your browser blocked notifications. Allow them for this site, then try again.",
+        );
+      } else if (
+        error instanceof Error &&
+        error.message === "Subscribe blocked"
+      ) {
+        setMessage(
+          "Your browser refused the subscription. In Brave, turn on “Use Google services for push messaging” in brave://settings/privacy and reload.",
         );
       } else {
         setMessage("We couldn't turn notifications on. Give it another try.");
@@ -562,6 +572,13 @@ export default function SettingsPage() {
           <p className="mt-4 text-sm text-muted">
             The service worker isn&apos;t running here. Notifications need a
             production build — they won&apos;t work in local development.
+          </p>
+        ) : null}
+
+        {pushState === "unconfigured" ? (
+          <p className="mt-4 text-sm text-muted">
+            Notifications aren&apos;t set up on this deployment — it has no
+            VAPID public key.
           </p>
         ) : null}
 

@@ -5,16 +5,34 @@ import type { WatchEntry } from "./store";
 export const LEAD_STORAGE_KEY = "anitrack-push-lead";
 export const DEFAULT_LEAD = 10;
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
-
+/** Whether this browser has the APIs at all. Says nothing about the server. */
 export function pushSupported(): boolean {
   return (
     typeof window !== "undefined" &&
     "serviceWorker" in navigator &&
     "PushManager" in window &&
-    "Notification" in window &&
-    VAPID_PUBLIC_KEY.length > 0
+    "Notification" in window
   );
+}
+
+let vapidKey: string | null = null;
+
+/**
+ * The server's VAPID public key. Fetched rather than read from the bundle so a
+ * deployment that gains the env var starts working without a rebuild. Empty
+ * means the deployment has no key configured.
+ */
+export async function getVapidKey(): Promise<string> {
+  if (vapidKey !== null) return vapidKey;
+  try {
+    const res = await fetch("/api/push/config");
+    const data = (await res.json()) as { vapidPublicKey?: string };
+    const key = data.vapidPublicKey ?? "";
+    if (key) vapidKey = key;
+    return key;
+  } catch {
+    return "";
+  }
 }
 
 /** The ids we alert on: everything currently marked "watching". */
@@ -38,13 +56,19 @@ function urlBase64ToUint8Array(base64: string) {
 }
 
 /**
- * Resolve the active service worker registration. Returns null when none is
- * registered — `navigator.serviceWorker.ready` would hang forever instead
- * (the worker is only registered in production builds).
+ * Resolve the active service worker registration, registering it if the
+ * page-load hook hasn't yet. Returns null when there's nothing to register —
+ * `navigator.serviceWorker.ready` would hang forever instead (the worker is
+ * only registered in production builds).
  */
 export async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return null;
-  const existing = await navigator.serviceWorker.getRegistration();
+  let existing = await navigator.serviceWorker.getRegistration();
+  if (!existing && process.env.NODE_ENV === "production") {
+    existing = await navigator.serviceWorker
+      .register("/sw.js")
+      .catch(() => undefined);
+  }
   if (!existing) return null;
   return navigator.serviceWorker.ready;
 }
@@ -85,18 +109,28 @@ export async function enablePush(
   ids: number[],
   lead: number,
 ): Promise<PushSubscription> {
+  const key = await getVapidKey();
+  if (!key) throw new Error("Not configured");
+
   const registration = await getRegistration();
   if (!registration) throw new Error("No service worker");
 
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Permission denied");
 
+  const existing = await registration.pushManager.getSubscription();
   const subscription =
-    (await registration.pushManager.getSubscription()) ??
-    (await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    }));
+    existing ??
+    (await registration.pushManager
+      .subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(key),
+      })
+      .catch(() => {
+        // Brave gates web push behind "Use Google services for push messaging"
+        // (brave://settings/privacy); subscribe() rejects while it's off.
+        throw new Error("Subscribe blocked");
+      }));
 
   await saveSubscription(subscription, ids, lead);
   return subscription;
