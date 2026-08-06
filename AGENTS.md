@@ -49,10 +49,40 @@ Browser (PWA, local-first)
                 ├─ /api/airing      ← next-episode data for tracked ids
                 ├─ /api/meta        ← genres/duration for stats
                 ├─ /api/recommend   ← AniList recommendations for tracked ids
+                ├─ /api/taste       ← tags/studios/shape for tracked ids
+                ├─ /api/discover    ← one candidate pool per term (see below)
                 ├─ /api/import       ← import a list by AniList username
                 ├─ /api/sync/[code] ← Upstash GET/SET (JSON blob)
                 └─ /api/push/*      ← episode notifications (see below)
 ```
+
+### Discover
+
+Personalised recommendations with a stated reason for every shelf. The taste
+profile is built and scored **in the browser** (`lib/taste.ts`, pure functions)
+so preferences never leave the device.
+
+```
+watchlist → /api/taste?ids=…        ← tags/genres/studios for tracked titles
+          → buildProfile()          ← weighted tag/genre/studio vectors
+          → planPools()             ← which terms to fetch
+          → /api/discover?mode=…&q= ← one pool per term, 4 requests at a time
+          → rankCandidates()        ← cosine similarity + quality/novelty/fit
+          → buildShelves()          ← each shelf carries its justification
+```
+
+- There are no user ratings, so "liked" is inferred: completed is the positive
+  signal, dropped the negative one, scaled by *where* it was dropped — bailing
+  at episode one is a much louder no than quitting at episode 20.
+- **Pools are fetched one term at a time on purpose.** Each URL is a
+  profile-independent cache key shared by every visitor, so nothing sent to
+  the server describes a whole person's taste.
+- Candidates already tracked are dropped, as are later seasons whose prequel
+  the user hasn't started (`prequelIds`, from the inlined `relations` edges).
+- Cast/Demographic/Technical tags ("Male Protagonist", "Shounen", "CGI") still
+  count toward similarity but are never allowed to name a shelf or drive a
+  query — they describe almost everything, so they explain nothing.
+- A shelf that can't reach 4 items is dropped rather than padded.
 
 ### Episode notifications
 
@@ -157,8 +187,20 @@ These are the things that most often cause build/lint failures here.
 6. **AniList caching**: every query goes through `aniFetch` with a `revalidate`
    (seasons 24h, schedule 1h, detail 6h, search 60s, user-list 0). AniList is
    rate-limited — keep server-side caching; don't fetch per keystroke server-side.
+   The observed budget is **30 requests/minute** (it degrades to that from 90),
+   which is easy to blow: `getSeasonCount` alone paginates a whole season. Fan
+   out in small batches, never all at once (see `POOL_CONCURRENCY` in
+   `lib/discover-fetch.ts`). `aniFetch` does not retry a 429 — it throws, and
+   callers that swallow it turn a rate-limit into silently missing content.
 
-7. **No accounts**: never add auth. Personal state is local; sync is by code
+7. **AniList `tag_in` / `genre_in` are AND, not OR.**
+   `tag_in: ["Time Loop", "Iyashikei"]` matches titles carrying *both* and
+   returns nothing. Use the singular `tag:` / `genre:` args and issue one query
+   per term. Relatedly, `Media.tags` takes no `sort` argument — it already
+   comes back rank-descending — and `tags { category }` is what distinguishes
+   a meaningful theme from a near-universal one.
+
+8. **No accounts**: never add auth. Personal state is local; sync is by code
    only and anyone with a code can read/write that blob (documented in UI).
 
 ## Verification workflow

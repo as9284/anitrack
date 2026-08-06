@@ -75,6 +75,48 @@ export interface MediaMeta {
   duration: number | null;
 }
 
+export interface MediaTag {
+  name: string;
+  rank: number;
+  /** AniList tag category, e.g. "Theme-Drama", "Demographic", "Technical". */
+  category: string | null;
+  /** Tag reveals a plot twist — usable for scoring, never shown as a reason. */
+  spoiler: boolean;
+}
+
+/** The reference data Discover needs about a title the user already tracks. */
+export interface TasteMeta {
+  id: number;
+  genres: string[];
+  tags: MediaTag[];
+  studios: string[];
+  format: string | null;
+  episodes: number | null;
+  seasonYear: number | null;
+}
+
+export type DiscoverSource =
+  | "recs"
+  | "tag"
+  | "genre"
+  | "studio"
+  | "gems"
+  | "editorial";
+
+export interface DiscoverCandidate extends MediaCard {
+  popularity: number | null;
+  status: string | null;
+  studios: string[];
+  tags: MediaTag[];
+  /** Direct anime prequels — used to hide seasons of series you haven't seen. */
+  prequelIds: number[];
+  source: DiscoverSource;
+  /** The tag/genre/studio name, or the seed media id for `recs`. */
+  sourceTerm: string;
+  /** How strongly AniList users co-recommend this with the seed. `recs` only. */
+  crowdRating: number | null;
+}
+
 export interface AiringStatus {
   id: number;
   status: string | null;
