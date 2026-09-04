@@ -919,7 +919,10 @@ export async function discoverByStudio(
 
 /**
  * AniList's crowd recommendations, kept attributed to the seed that produced
- * them so the UI can say "because you finished X" and mean it.
+ * them so the UI can say "because you finished X" and mean it. A title that
+ * several seeds recommend is returned once per seed: collapsing it to the
+ * best-voted seed would hand every overlap to whichever seed is most popular,
+ * and one blockbuster ends up fronting the whole page.
  */
 export async function discoverRecs(
   ids: number[],
@@ -955,21 +958,17 @@ export async function discoverRecs(
     };
   }>(query, { ids: ids.slice(0, 50) }, 21600);
 
-  // Keep one entry per recommended title, attributed to its strongest seed.
-  const best = new Map<number, DiscoverCandidate>();
+  const out: DiscoverCandidate[] = [];
   for (const seed of data.Page.media) {
     for (const node of seed.recommendations?.nodes ?? []) {
       const rec = node.mediaRecommendation;
       if (!rec) continue;
       if (!allowAdult && rec.isAdult) continue;
       if (rec.format === "MUSIC") continue;
-      const rating = node.rating ?? 0;
-      const existing = best.get(rec.id);
-      if (existing && (existing.crowdRating ?? 0) >= rating) continue;
-      best.set(rec.id, mapCandidate(rec, "recs", String(seed.id), rating));
+      out.push(mapCandidate(rec, "recs", String(seed.id), node.rating ?? 0));
     }
   }
-  return [...best.values()];
+  return out;
 }
 
 /**

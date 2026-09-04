@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { useHydrated } from "@/lib/hooks";
+import { useHydrated, useNow } from "@/lib/hooks";
 import { AnimeCard } from "./anime-card";
 import { PosterGridSkeleton } from "./skeletons";
 import {
@@ -78,9 +78,15 @@ export function DiscoverClient() {
         progress: entry.progress,
         episodes: entry.episodes,
         title: entry.title,
+        updatedAt: entry.updatedAt,
       })),
     [entries],
   );
+
+  // The seed window steps forward once a day so the "Because you finished"
+  // shelves cycle through the list. Checked once a minute; the derived day
+  // only changes at midnight, so nothing below recomputes until then.
+  const day = Math.floor(useNow(60_000) / 86_400_000);
 
   const idsKey = useMemo(
     () =>
@@ -110,7 +116,7 @@ export function DiscoverClient() {
   );
 
   const cold = profile.sampleSize < COLD_START_THRESHOLD;
-  const plan = useMemo(() => planPools(profile), [profile]);
+  const plan = useMemo(() => planPools(profile, day), [profile, day]);
   const planKey = useMemo(
     () => (cold ? "editorial" : JSON.stringify(plan)),
     [cold, plan],
@@ -133,8 +139,8 @@ export function DiscoverClient() {
     if (!metaReady || pools === null || pools.key !== planKey) return null;
     return planKey === "editorial"
       ? buildEditorialShelves(pools.value, profile.seenIds)
-      : buildShelves(profile, rankCandidates(profile, pools.value));
-  }, [metaReady, pools, planKey, profile]);
+      : buildShelves(profile, rankCandidates(profile, pools.value), day);
+  }, [metaReady, pools, planKey, profile, day]);
 
   if (!hydrated) {
     return (

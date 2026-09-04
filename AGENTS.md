@@ -74,6 +74,13 @@ watchlist → /api/taste?ids=…        ← tags/genres/studios for tracked titl
 - There are no user ratings, so "liked" is inferred: completed is the positive
   signal, dropped the negative one, scaled by *where* it was dropped — bailing
   at episode one is a much louder no than quitting at episode 20.
+- Seeds (the "Because you finished X" shelves and the recs batch) are ordered
+  by weight, then **most recently updated**, and the window rotates daily. Every
+  completed show weighs the same, and the store is a `Record<number, …>` that
+  iterates in ascending AniList id, so without both of those the oldest show on
+  the list (Death Note, id 1535) fronted the page permanently. Recs are also
+  returned once per seed rather than collapsed to the best-voted seed, which
+  otherwise hands every overlap to the most popular title.
 - **Pools are fetched one term at a time on purpose.** Each URL is a
   profile-independent cache key shared by every visitor, so nothing sent to
   the server describes a whole person's taste.

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { useHydrated } from "@/lib/hooks";
+import { useHydrated, useNow } from "@/lib/hooks";
 import { AnimeCard } from "./anime-card";
 import { PosterGridSkeleton } from "./skeletons";
 import { fetchPools, fetchTasteMeta } from "@/lib/discover-fetch";
@@ -39,9 +39,14 @@ export function RecommendationsRow() {
         progress: entry.progress,
         episodes: entry.episodes,
         title: entry.title,
+        updatedAt: entry.updatedAt,
       })),
     [entries],
   );
+
+  // Same daily seed rotation as /discover, so both pages ask for the same
+  // recs pool and share its cache.
+  const day = Math.floor(useNow(60_000) / 86_400_000);
 
   const idsKey = useMemo(
     () =>
@@ -75,7 +80,7 @@ export function RecommendationsRow() {
   // Home only needs a handful of picks, so skip the genre, studio and
   // blind-spot pools — those exist to fill out shelves on /discover.
   const plan = useMemo(() => {
-    const full = planPools(profile);
+    const full = planPools(profile, day);
     return {
       ...full,
       tags: full.tags.slice(0, 3),
@@ -84,7 +89,7 @@ export function RecommendationsRow() {
       studios: [],
       blindSpotGenres: [],
     };
-  }, [profile]);
+  }, [profile, day]);
 
   const planKey = useMemo(() => JSON.stringify(plan), [plan]);
 
@@ -101,7 +106,15 @@ export function RecommendationsRow() {
 
   const picks = useMemo(() => {
     if (!metaReady || pools === null || pools.key !== planKey) return null;
-    return rankCandidates(profile, pools.value).slice(0, 8);
+    // Recs arrive once per seed, so the same title can rank more than once.
+    const seen = new Set<number>();
+    return rankCandidates(profile, pools.value)
+      .filter((item) => {
+        if (seen.has(item.candidate.id)) return false;
+        seen.add(item.candidate.id);
+        return true;
+      })
+      .slice(0, 8);
   }, [metaReady, pools, planKey, profile]);
 
   if (!hydrated || !idsKey || cold) return null;

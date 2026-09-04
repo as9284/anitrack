@@ -28,6 +28,8 @@ export interface TasteEntry {
   progress: number;
   episodes: number | null;
   title: string;
+  /** Last status/progress change, so ties between finished shows break by recency. */
+  updatedAt: number;
 }
 
 export interface TasteProfile {
@@ -37,7 +39,12 @@ export interface TasteProfile {
   studios: Map<string, number>;
   /** Entries that carried a real signal (everything but plan-to-watch). */
   sampleSize: number;
-  /** Best-liked titles, strongest first — seeds for crowd recommendations. */
+  /**
+   * Best-liked titles, strongest first, most recently finished breaking ties.
+   * Every completed show scores the same, so without the recency tiebreak the
+   * order would fall back to ascending AniList id and the oldest show on the
+   * list would front the page forever.
+   */
   seeds: TasteEntry[];
   /** Everything already tracked, in any status. Never recommend these. */
   seenIds: Set<number>;
@@ -225,7 +232,12 @@ export function buildProfile(
 
   const seeds = weighted
     .filter(({ weight }) => weight >= 0.7)
-    .sort((a, b) => b.weight - a.weight)
+    .sort(
+      (a, b) =>
+        b.weight - a.weight ||
+        b.entry.updatedAt - a.entry.updatedAt ||
+        b.entry.id - a.entry.id,
+    )
     .map(({ entry }) => entry);
 
   const touchedGenres = new Set(
@@ -276,9 +288,29 @@ export interface DiscoverPlan {
 /** The minimum tracked history before a personalised profile means anything. */
 export const COLD_START_THRESHOLD = 5;
 
-export function planPools(profile: TasteProfile): DiscoverPlan {
+/** How many seeds get their own "Because you finished" shelf. */
+const SHELF_SEEDS = 3;
+
+/**
+ * The seed list, rotated so a different trio fronts the page each day. Seeds
+ * are already ordered by preference and recency; stepping the window by
+ * `SHELF_SEEDS` per day walks the whole history instead of parking on the
+ * same three titles until something new is finished.
+ */
+export function rotateSeeds(
+  seeds: TasteEntry[],
+  rotation: number,
+): TasteEntry[] {
+  if (seeds.length <= SHELF_SEEDS) return seeds;
+  const offset = (rotation * SHELF_SEEDS) % seeds.length;
+  return [...seeds.slice(offset), ...seeds.slice(0, offset)];
+}
+
+export function planPools(profile: TasteProfile, rotation = 0): DiscoverPlan {
   return {
-    seedIds: profile.seeds.slice(0, 20).map((entry) => entry.id),
+    seedIds: rotateSeeds(profile.seeds, rotation)
+      .slice(0, 20)
+      .map((entry) => entry.id),
     tags: profile.topTags.slice(0, 6),
     genres: profile.topGenres.slice(0, 3),
     gemGenres: profile.topGenres.slice(0, 2),
@@ -408,23 +440,25 @@ export function scoreCandidate(
 
 /**
  * Drop everything already tracked, plus sequels to series the user hasn't
- * started, then score and rank what's left. Candidates arriving from several
- * pools are merged, keeping the highest-scoring attribution.
+ * started, then score and rank what's left. A title that arrives from several
+ * pools keeps one entry per attribution, so every seed's shelf can still claim
+ * it; `buildShelves` makes sure it's only shown once.
  */
 export function rankCandidates(
   profile: TasteProfile,
   candidates: DiscoverCandidate[],
 ): ScoredCandidate[] {
-  const best = new Map<number, ScoredCandidate>();
+  const best = new Map<string, ScoredCandidate>();
 
   for (const candidate of candidates) {
     if (profile.seenIds.has(candidate.id)) continue;
     if (needsPrequel(profile, candidate)) continue;
 
     const scored = scoreCandidate(profile, candidate);
-    const existing = best.get(candidate.id);
+    const key = `${candidate.id}|${candidate.source}|${candidate.sourceTerm}`;
+    const existing = best.get(key);
     if (!existing || scored.score > existing.score) {
-      best.set(candidate.id, scored);
+      best.set(key, scored);
     }
   }
 
@@ -459,6 +493,7 @@ export function joinList(values: string[]): string {
 export function buildShelves(
   profile: TasteProfile,
   ranked: ScoredCandidate[],
+  rotation = 0,
 ): Shelf[] {
   const used = new Set<number>();
   const shelves: Shelf[] = [];
@@ -468,9 +503,13 @@ export function buildShelves(
     limit = MAX_SHELF_ITEMS,
   ): ScoredCandidate[] => {
     const picked: ScoredCandidate[] = [];
+    const pickedIds = new Set<number>();
     for (const item of pool) {
-      if (used.has(item.candidate.id)) continue;
+      if (used.has(item.candidate.id) || pickedIds.has(item.candidate.id)) {
+        continue;
+      }
       picked.push(item);
+      pickedIds.add(item.candidate.id);
       if (picked.length >= limit) break;
     }
     return picked;
@@ -483,7 +522,8 @@ export function buildShelves(
   };
 
   // 1. Crowd recommendations, attributed to the specific show that earned them.
-  for (const seed of profile.seeds.slice(0, 3)) {
+  const shelfSeeds = rotateSeeds(profile.seeds, rotation).slice(0, SHELF_SEEDS);
+  for (const seed of shelfSeeds) {
     const pool = ranked.filter(
       (item) =>
         item.candidate.source === "recs" &&
