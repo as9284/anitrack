@@ -8,6 +8,7 @@ import { ServiceWorkerRegister } from "@/components/service-worker";
 import { AutoSync } from "@/components/auto-sync";
 import { PushSync } from "@/components/push-sync";
 import { CommandPalette } from "@/components/command-palette";
+import { ScrollReset } from "@/components/scroll-reset";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -85,6 +86,7 @@ export default function RootLayout({
           <AutoSync />
           <PushSync />
           <CommandPalette />
+          <ScrollReset />
         </ThemeProvider>
       </body>
     </html>
