@@ -3,13 +3,13 @@ import { getSchedule } from "@/lib/anilist";
 import { resolveAllowAdult } from "@/lib/adult-server";
 import { nowSeconds } from "@/lib/utils";
 import { buildIcs } from "@/lib/ics";
+import { SITE_URL } from "@/lib/site";
 import type { ScheduleItem } from "@/lib/types";
 
 // `resolveAllowAdult` reads cookies, so this can't be statically cached; the
 // CDN caching comes from the Cache-Control header below instead.
 export const dynamic = "force-dynamic";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const WINDOW = 14 * 86400;
 
 export async function GET(request: Request) {

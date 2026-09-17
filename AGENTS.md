@@ -20,7 +20,7 @@ rationale.
 - **next-themes** for light/dark
 - Data: **AniList GraphQL** (`https://graphql.anilist.co`, no API key)
 - PWA via a hand-written service worker (`public/sw.js`)
-- Deployed on **Vercel**
+- Deployed on **Vercel** at `anitrack.asaliba.net`, from `main`
 
 ## Commands
 
@@ -244,4 +244,14 @@ The recurring dispatch is a QStash schedule (Upstash console → QStash →
 Schedules), `*/5 * * * *` → `POST https://<site>/api/push/dispatch`. Without it
 subscriptions are stored but nothing is ever sent.
 
-Set `NEXT_PUBLIC_SITE_URL` in production so OG/Twitter image URLs are absolute.
+`NEXT_PUBLIC_SITE_URL` is optional. `lib/site.ts` holds the origin in one place
+and already falls back to the production domain, so OG/Twitter image URLs and the
+calendar feed stay absolute without it. Change the fallback rather than relying on
+the variable: the fallback is what ships whenever configuration is forgotten, and
+a wrong one points `metadataBase` (and therefore `rel=canonical`) at a domain the
+site no longer uses.
+
+**Hosting constraint:** AniList blocks Cloudflare Workers egress IPs as a class
+(`403 "You have been manually blocked"`), and the route handlers swallow it into
+empty results, so the symptom is a site that renders perfectly with no anime in
+it. Verified 2026-09-17. Any host must have non-shared egress.

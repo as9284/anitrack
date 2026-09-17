@@ -9,6 +9,7 @@ import { AutoSync } from "@/components/auto-sync";
 import { PushSync } from "@/components/push-sync";
 import { CommandPalette } from "@/components/command-palette";
 import { ScrollReset } from "@/components/scroll-reset";
+import { SITE_URL } from "@/lib/site";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,7 +24,6 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const DESCRIPTION =
   "Track upcoming anime episodes, browse seasonal charts, and never miss a release. A calm, editorial anime tracker.";
 

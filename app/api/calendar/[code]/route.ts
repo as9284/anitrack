@@ -4,10 +4,10 @@ import { getScheduleForIds } from "@/lib/anilist";
 import { resolveAllowAdult } from "@/lib/adult-server";
 import { nowSeconds } from "@/lib/utils";
 import { buildIcs } from "@/lib/ics";
+import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const WINDOW = 60 * 86400;
 
 interface BlobEntry {

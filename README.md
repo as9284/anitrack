@@ -57,5 +57,12 @@ Only cloud sync needs these — the rest of the app runs without them.
 
 ## Deploy (Vercel)
 
-Push to a Git repo, import into Vercel, add the two `UPSTASH_*` env vars in the
-project settings. No other configuration needed.
+Live at <https://anitrack.asaliba.net>. The GitHub repo is connected to the
+Vercel project, so a push to `main` deploys to production.
+
+Add the env vars from [Environment](#environment) in the project settings.
+
+**Do not host this on Cloudflare Workers.** AniList blocks the shared Workers
+egress pool as a class and answers `403 "You have been manually blocked"`, so
+every page renders empty while nothing errors. Any host without dedicated egress
+is a risk for the same reason.
